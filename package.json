@@ -1,0 +1,42 @@
+{
+  "name": "biblebeam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source real-time Bible verse detection for live sermons",
+  "scripts": {
+    "dev": "electron-webpack dev",
+    "build": "electron-webpack && electron-builder",
+    "build:linux": "electron-webpack && electron-builder --linux",
+    "build:mac": "electron-webpack && electron-builder --mac",
+    "build:win": "electron-webpack && electron-builder --win",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "jest --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/ws": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0",
+    "electron-webpack": "^2.8.0",
+    "electron-webpack-ts": "^4.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "keytar": "^7.9.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.0.0",
+    "ws": "^8.0.0"
+  }
+}

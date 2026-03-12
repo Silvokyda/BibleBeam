@@ -1,0 +1,36 @@
+appId: com.biblebeam.app
+productName: BibleBeam
+copyright: Copyright © 2026 BibleBeam Contributors
+
+directories:
+  output: release
+
+linux:
+  target:
+    - deb
+    - AppImage
+  category: Utility
+  icon: assets/icon.png
+
+mac:
+  target:
+    - dmg
+  icon: assets/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+win:
+  target:
+    - nsis
+  icon: assets/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+
+files:
+  - dist/**/*
+  - packages/bible-data/translations/**/*
+  - node_modules/**/*
+  - "!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
