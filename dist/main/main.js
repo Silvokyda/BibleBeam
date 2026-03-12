@@ -249,15 +249,9 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GroqProvider = void 0;
-const groq_sdk_1 = __importDefault(__webpack_require__(/*! groq-sdk */ "groq-sdk"));
-const fs = __importStar(__webpack_require__(/*! fs */ "fs"));
-const path = __importStar(__webpack_require__(/*! path */ "path"));
-const os = __importStar(__webpack_require__(/*! os */ "os"));
+const groq_sdk_1 = __importStar(__webpack_require__(/*! groq-sdk */ "groq-sdk"));
 // Buffer config: 4 seconds of 16kHz mono s16le audio
 const CHUNK_MS = 4000;
 const SAMPLE_RATE = 16000;
@@ -308,7 +302,6 @@ class GroqProvider {
             return;
         this.buffer.push(chunk);
         this.bufferSize += chunk.length;
-        // When we have enough audio, transcribe it
         if (this.bufferSize >= CHUNK_BYTES && !this.processing) {
             const audioData = Buffer.concat(this.buffer);
             this.buffer = [];
@@ -317,7 +310,6 @@ class GroqProvider {
         }
     }
     stopStreaming() {
-        // Flush remaining buffer if substantial
         if (this.bufferSize >= CHUNK_BYTES / 2 && !this.processing) {
             const audioData = Buffer.concat(this.buffer);
             this.transcribeChunk(audioData);
@@ -338,13 +330,14 @@ class GroqProvider {
         if (!this.groq || !this.onTranscript)
             return;
         this.processing = true;
-        const tmpFile = path.join(os.tmpdir(), `biblebeam_${Date.now()}.wav`);
         try {
-            // Convert raw PCM to WAV (Groq needs a file upload)
+            // Convert raw PCM → WAV in memory — no temp file needed
             const wav = pcmToWav(pcmData, SAMPLE_RATE, CHANNELS);
-            fs.writeFileSync(tmpFile, wav);
+            // toFile() is the Groq SDK's own helper — accepts a Buffer/Uint8Array
+            // and returns the correct Uploadable type, no globalThis.File needed.
+            const file = await (0, groq_sdk_1.toFile)(wav, 'audio.wav', { type: 'audio/wav' });
             const result = await this.groq.audio.transcriptions.create({
-                file: fs.createReadStream(tmpFile),
+                file,
                 model: 'whisper-large-v3-turbo',
                 language: 'en',
             });
@@ -362,11 +355,6 @@ class GroqProvider {
             this.onError?.(new Error(`Transcription failed: ${err?.message || err}`));
         }
         finally {
-            // Clean up temp file
-            try {
-                fs.unlinkSync(tmpFile);
-            }
-            catch { }
             this.processing = false;
         }
     }
@@ -747,12 +735,16 @@ exports.audioCapture = new AudioCapture();
 
 "use strict";
 
-// src/main/index.ts
-// Full working pipeline: audio → Groq STT → verse detection → KJV lookup → projector
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+// src/main/index.ts
+// Full working pipeline: audio → Groq STT → verse detection → KJV lookup → projector
+const node_buffer_1 = __webpack_require__(/*! node:buffer */ "node:buffer");
+if (!('File' in globalThis)) {
+    globalThis.File = node_buffer_1.File;
+}
 const electron_1 = __webpack_require__(/*! electron */ "electron");
 const child_process_1 = __webpack_require__(/*! child_process */ "child_process");
 const path_1 = __importDefault(__webpack_require__(/*! path */ "path"));
@@ -6430,14 +6422,14 @@ module.exports = require("net");
 
 /***/ },
 
-/***/ "os"
-/*!*********************!*\
-  !*** external "os" ***!
-  \*********************/
+/***/ "node:buffer"
+/*!******************************!*\
+  !*** external "node:buffer" ***!
+  \******************************/
 (module) {
 
 "use strict";
-module.exports = require("os");
+module.exports = require("node:buffer");
 
 /***/ },
 

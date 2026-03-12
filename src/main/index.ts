@@ -1,5 +1,9 @@
 // src/main/index.ts
 // Full working pipeline: audio → Groq STT → verse detection → KJV lookup → projector
+import { File as NodeFile } from 'node:buffer';
+if (!('File' in globalThis)) {
+  (globalThis as any).File = NodeFile;
+}
 
 import { app, BrowserWindow, ipcMain, screen, nativeTheme } from 'electron';
 import { execSync } from 'child_process';

@@ -3,10 +3,7 @@
 // Free tier: 7,200 seconds/day. More than enough for church use.
 // Get a key at: https://console.groq.com
 
-import Groq from 'groq-sdk';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import Groq, { toFile } from 'groq-sdk';
 import type { ISTTProvider, TranscriptSegment } from './base';
 
 // Buffer config: 4 seconds of 16kHz mono s16le audio
@@ -66,7 +63,6 @@ export class GroqProvider implements ISTTProvider {
     this.buffer.push(chunk);
     this.bufferSize += chunk.length;
 
-    // When we have enough audio, transcribe it
     if (this.bufferSize >= CHUNK_BYTES && !this.processing) {
       const audioData = Buffer.concat(this.buffer);
       this.buffer     = [];
@@ -76,7 +72,6 @@ export class GroqProvider implements ISTTProvider {
   }
 
   stopStreaming(): void {
-    // Flush remaining buffer if substantial
     if (this.bufferSize >= CHUNK_BYTES / 2 && !this.processing) {
       const audioData = Buffer.concat(this.buffer);
       this.transcribeChunk(audioData);
@@ -101,15 +96,16 @@ export class GroqProvider implements ISTTProvider {
     if (!this.groq || !this.onTranscript) return;
     this.processing = true;
 
-    const tmpFile = path.join(os.tmpdir(), `biblebeam_${Date.now()}.wav`);
-
     try {
-      // Convert raw PCM to WAV (Groq needs a file upload)
+      // Convert raw PCM → WAV in memory — no temp file needed
       const wav = pcmToWav(pcmData, SAMPLE_RATE, CHANNELS);
-      fs.writeFileSync(tmpFile, wav);
+
+      // toFile() is the Groq SDK's own helper — accepts a Buffer/Uint8Array
+      // and returns the correct Uploadable type, no globalThis.File needed.
+      const file = await toFile(wav, 'audio.wav', { type: 'audio/wav' });
 
       const result = await this.groq.audio.transcriptions.create({
-        file:     fs.createReadStream(tmpFile),
+        file,
         model:    'whisper-large-v3-turbo',
         language: 'en',
       });
@@ -126,8 +122,6 @@ export class GroqProvider implements ISTTProvider {
       console.error('[Groq] Transcription error:', err?.message || err);
       this.onError?.(new Error(`Transcription failed: ${err?.message || err}`));
     } finally {
-      // Clean up temp file
-      try { fs.unlinkSync(tmpFile); } catch {}
       this.processing = false;
     }
   }
