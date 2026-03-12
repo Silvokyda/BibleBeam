@@ -2,7 +2,12 @@
 // Stage 1 of the detection pipeline.
 // Detects explicit references: "John 3:16", "Ps. 23:1", "1 Cor 13:4-7"
 
-import type { VerseReference } from '@biblebeam/bible-providers';
+export interface VerseReference {
+  book: string;
+  chapter: number;
+  verse: number;
+  endVerse?: number;
+}
 
 // All 66 books + common abbreviations, ordered longest-first so
 // greedy matching prefers "1 Corinthians" over "Cor"
@@ -77,15 +82,10 @@ const BOOK_MAP: Record<string, string> = {
   'revelation': 'Revelation', 'rev': 'Revelation',
 };
 
-// Build a sorted list of aliases longest-first to avoid premature short matches
 const ALIASES = Object.keys(BOOK_MAP).sort((a, b) => b.length - a.length);
-
-// Escape for use in regex
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 const BOOK_PATTERN = ALIASES.map(escapeRegex).join('|');
 
-// Matches: "John 3:16", "Ps. 23:1-4", "1 Cor 13:4"
 const REF_REGEX = new RegExp(
   `\\b(${BOOK_PATTERN})\\s+(\\d{1,3})\\s*:\\s*(\\d{1,3})(?:\\s*[-–]\\s*(\\d{1,3}))?\\b`,
   'gi'
@@ -108,7 +108,6 @@ export function detectExplicitReference(text: string): VerseReference | null {
   };
 }
 
-/** Format a VerseReference back to a human-readable string */
 export function formatReference(ref: VerseReference): string {
   const base = `${ref.book} ${ref.chapter}:${ref.verse}`;
   return ref.endVerse ? `${base}-${ref.endVerse}` : base;
