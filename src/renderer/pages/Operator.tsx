@@ -1,9 +1,242 @@
 // src/renderer/pages/Operator.tsx
+// Full professional Bible presentation interface — BibleBeam
+// Features: verse browser, bookmarks, history, preview monitor, keyboard nav,
+//           translation switcher, smart reference search, play/bookmark buttons
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 const bb = (window as any).biblebeam;
 
+const OT_BOOKS = [
+  "Genesis",
+  "Exodus",
+  "Leviticus",
+  "Numbers",
+  "Deuteronomy",
+  "Joshua",
+  "Judges",
+  "Ruth",
+  "1 Samuel",
+  "2 Samuel",
+  "1 Kings",
+  "2 Kings",
+  "1 Chronicles",
+  "2 Chronicles",
+  "Ezra",
+  "Nehemiah",
+  "Esther",
+  "Job",
+  "Psalms",
+  "Proverbs",
+  "Ecclesiastes",
+  "Song of Solomon",
+  "Isaiah",
+  "Jeremiah",
+  "Lamentations",
+  "Ezekiel",
+  "Daniel",
+  "Hosea",
+  "Joel",
+  "Amos",
+  "Obadiah",
+  "Jonah",
+  "Micah",
+  "Nahum",
+  "Habakkuk",
+  "Zephaniah",
+  "Haggai",
+  "Zechariah",
+  "Malachi",
+];
+const NT_BOOKS = [
+  "Matthew",
+  "Mark",
+  "Luke",
+  "John",
+  "Acts",
+  "Romans",
+  "1 Corinthians",
+  "2 Corinthians",
+  "Galatians",
+  "Ephesians",
+  "Philippians",
+  "Colossians",
+  "1 Thessalonians",
+  "2 Thessalonians",
+  "1 Timothy",
+  "2 Timothy",
+  "Titus",
+  "Philemon",
+  "Hebrews",
+  "James",
+  "1 Peter",
+  "2 Peter",
+  "1 John",
+  "2 John",
+  "3 John",
+  "Jude",
+  "Revelation",
+];
+const ALL_BOOKS = [...OT_BOOKS, ...NT_BOOKS];
+
+const BOOK_ABBREVS: Record<string, string> = {
+  gen: "Genesis",
+  exo: "Exodus",
+  ex: "Exodus",
+  lev: "Leviticus",
+  num: "Numbers",
+  deut: "Deuteronomy",
+  deu: "Deuteronomy",
+  josh: "Joshua",
+  judg: "Judges",
+  "1sam": "1 Samuel",
+  "2sam": "2 Samuel",
+  "1kgs": "1 Kings",
+  "1kings": "1 Kings",
+  "2kgs": "2 Kings",
+  "2kings": "2 Kings",
+  "1chr": "1 Chronicles",
+  "2chr": "2 Chronicles",
+  neh: "Nehemiah",
+  esth: "Esther",
+  psa: "Psalms",
+  ps: "Psalms",
+  prov: "Proverbs",
+  pro: "Proverbs",
+  eccl: "Ecclesiastes",
+  ecc: "Ecclesiastes",
+  song: "Song of Solomon",
+  isa: "Isaiah",
+  jer: "Jeremiah",
+  lam: "Lamentations",
+  ezek: "Ezekiel",
+  dan: "Daniel",
+  hos: "Hosea",
+  obad: "Obadiah",
+  jon: "Jonah",
+  mic: "Micah",
+  nah: "Nahum",
+  hab: "Habakkuk",
+  zeph: "Zephaniah",
+  hag: "Haggai",
+  zech: "Zechariah",
+  mal: "Malachi",
+  matt: "Matthew",
+  mat: "Matthew",
+  mk: "Mark",
+  lk: "Luke",
+  jn: "John",
+  rom: "Romans",
+  "1cor": "1 Corinthians",
+  "2cor": "2 Corinthians",
+  gal: "Galatians",
+  eph: "Ephesians",
+  phil: "Philippians",
+  php: "Philippians",
+  col: "Colossians",
+  "1thess": "1 Thessalonians",
+  "2thess": "2 Thessalonians",
+  "1tim": "1 Timothy",
+  "2tim": "2 Timothy",
+  tit: "Titus",
+  phlm: "Philemon",
+  heb: "Hebrews",
+  jas: "James",
+  "1pet": "1 Peter",
+  "2pet": "2 Peter",
+  "1jn": "1 John",
+  "2jn": "2 John",
+  "3jn": "3 John",
+  rev: "Revelation",
+};
+
+const CHAPTER_COUNTS: Record<string, number> = {
+  Genesis: 50,
+  Exodus: 40,
+  Leviticus: 27,
+  Numbers: 36,
+  Deuteronomy: 34,
+  Joshua: 24,
+  Judges: 21,
+  Ruth: 4,
+  "1 Samuel": 31,
+  "2 Samuel": 24,
+  "1 Kings": 22,
+  "2 Kings": 25,
+  "1 Chronicles": 29,
+  "2 Chronicles": 36,
+  Ezra: 10,
+  Nehemiah: 13,
+  Esther: 10,
+  Job: 42,
+  Psalms: 150,
+  Proverbs: 31,
+  Ecclesiastes: 12,
+  "Song of Solomon": 8,
+  Isaiah: 66,
+  Jeremiah: 52,
+  Lamentations: 5,
+  Ezekiel: 48,
+  Daniel: 12,
+  Hosea: 14,
+  Joel: 3,
+  Amos: 9,
+  Obadiah: 1,
+  Jonah: 4,
+  Micah: 7,
+  Nahum: 3,
+  Habakkuk: 3,
+  Zephaniah: 3,
+  Haggai: 2,
+  Zechariah: 14,
+  Malachi: 4,
+  Matthew: 28,
+  Mark: 16,
+  Luke: 24,
+  John: 21,
+  Acts: 28,
+  Romans: 16,
+  "1 Corinthians": 16,
+  "2 Corinthians": 13,
+  Galatians: 6,
+  Ephesians: 6,
+  Philippians: 4,
+  Colossians: 4,
+  "1 Thessalonians": 5,
+  "2 Thessalonians": 3,
+  "1 Timothy": 6,
+  "2 Timothy": 4,
+  Titus: 3,
+  Philemon: 1,
+  Hebrews: 13,
+  James: 5,
+  "1 Peter": 5,
+  "2 Peter": 3,
+  "1 John": 5,
+  "2 John": 1,
+  "3 John": 1,
+  Jude: 1,
+  Revelation: 22,
+};
+
+const TRANSLATIONS = ["KJV", "ASV", "WEB", "ESV"];
+
+interface VerseItem {
+  verse: number;
+  text: string;
+}
+interface VerseRef {
+  reference: string;
+  verseText: string;
+  translation: string;
+}
+interface DetectedVerse extends VerseRef {
+  id: number;
+  confidence: number;
+  method: string;
+  ts: number;
+}
 interface TranscriptLine {
   id: number;
   text: string;
@@ -11,212 +244,353 @@ interface TranscriptLine {
   ts: number;
 }
 
-interface DetectedVerse {
-  id: number;
-  reference: string;
-  verseText: string;
-  translation: string;
-  confidence: number;
-  method: "regex" | "fuzzy" | "semantic";
-  ts: number;
-}
-
 let _id = 0;
 const uid = () => ++_id;
 
+function parseSmartRef(
+  input: string,
+): { book: string; chapter: number; verse: number } | null {
+  const s = input
+    .trim()
+    .toLowerCase()
+    .replace(/[:.]/g, " ")
+    .replace(/\s+/g, " ");
+  const m = s.match(
+    /^((?:[123]\s*)?[a-z]+(?:\s+of\s+solomon)?)\s+(\d+)\s+(\d+)$/,
+  );
+  if (!m) return null;
+  const bookKey = m[1].replace(/\s+/g, "");
+  const bookFull =
+    BOOK_ABBREVS[bookKey] ||
+    ALL_BOOKS.find((b) => b.toLowerCase().startsWith(m[1])) ||
+    ALL_BOOKS.find((b) => b.toLowerCase() === m[1]);
+  if (!bookFull) return null;
+  return { book: bookFull, chapter: parseInt(m[2]), verse: parseInt(m[3]) };
+}
+
 export function Operator() {
   const navigate = useNavigate();
-  const [listening, setListening] = useState(false);
+  const [selectedBook, setSelectedBook] = useState("John");
+  const [selectedChapter, setSelectedChapter] = useState(3);
+  const [selectedVerse, setSelectedVerse] = useState<number | null>(null);
+  const [verses, setVerses] = useState<VerseItem[]>([]);
+  const [translation, setTranslation] = useState("KJV");
+  const [bookSearch, setBookSearch] = useState("");
+  const [rightTab, setRightTab] = useState<"history" | "bookmarks" | "queue">(
+    "history",
+  );
+  const [liveVerse, setLiveVerse] = useState<VerseRef | null>(null);
+  const [previewVerse, setPreviewVerse] = useState<VerseRef | null>(null);
   const [projectorOpen, setProjectorOpen] = useState(false);
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  const [history, setHistory] = useState<VerseRef[]>([]);
+  const [bookmarks, setBookmarks] = useState<VerseRef[]>([]);
   const [queue, setQueue] = useState<DetectedVerse[]>([]);
-  const [current, setCurrent] = useState<DetectedVerse | null>(null);
-  const [override, setOverride] = useState("");
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
+  const [listening, setListening] = useState(false);
+  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<VerseRef[]>([]);
+  const [searching, setSearching] = useState(false);
+  const verseListRef = useRef<HTMLDivElement>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcript]);
-
-  // Check projector status on mount
   useEffect(() => {
     (async () => {
-      const status = await bb?.getProjectorStatus?.();
-      setProjectorOpen(!!status);
+      const data = await bb?.getVerses?.({
+        book: selectedBook,
+        chapter: selectedChapter,
+        translation,
+      });
+      setVerses(data?.length ? data : []);
+      setSelectedVerse(null);
     })();
-
-    const unsubStatus = bb?.onProjectorStatus?.((open: boolean) => {
-      setProjectorOpen(open);
-    });
-
-    return () => unsubStatus?.();
-  }, []);
+  }, [selectedBook, selectedChapter, translation]);
 
   useEffect(() => {
-    const unsubT = bb?.onTranscript?.((payload: any) => {
+    if (selectedVerse && verseListRef.current) {
+      const el = verseListRef.current.querySelector(
+        `[data-verse="${selectedVerse}"]`,
+      ) as HTMLElement;
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [selectedVerse, verses]);
+
+  useEffect(() => {
+    (async () => setProjectorOpen(!!(await bb?.getProjectorStatus?.())))();
+    const u1 = bb?.onProjectorStatus?.((v: boolean) => setProjectorOpen(v));
+    const u2 = bb?.onTranscript?.((p: any) => {
       setTranscript((prev) => {
         const lines = [...prev];
-        if (
-          !payload.isFinal &&
-          lines.length > 0 &&
-          !lines[lines.length - 1].isFinal
-        ) {
+        if (!p.isFinal && lines.length && !lines[lines.length - 1].isFinal) {
           lines[lines.length - 1] = {
             ...lines[lines.length - 1],
-            text: payload.text,
+            text: p.text,
           };
           return lines;
         }
-        const next = [
+        return [
           ...lines,
-          {
-            id: uid(),
-            text: payload.text,
-            isFinal: payload.isFinal,
-            ts: Date.now(),
-          },
-        ];
-        return next.slice(-80);
+          { id: uid(), text: p.text, isFinal: p.isFinal, ts: Date.now() },
+        ].slice(-80);
       });
+      setTimeout(() => {
+        if (transcriptRef.current) transcriptRef.current.scrollTop = 99999;
+      }, 50);
     });
-
-    const unsubV = bb?.onVerseDetected?.((payload: any) => {
-      const verse: DetectedVerse = { id: uid(), ...payload, ts: Date.now() };
-      if (payload.confidence >= 0.9) {
-        // ← only auto-displays at 90%+
-        setCurrent(verse);
-        bb?.approveVerse?.(payload);
+    const u3 = bb?.onVerseDetected?.((p: any) => {
+      const v: DetectedVerse = { id: uid(), ...p, ts: Date.now() };
+      if (p.confidence >= 0.85) {
+        goLive({
+          reference: p.reference,
+          verseText: p.verseText,
+          translation: p.translation || translation,
+        });
+        navigateToBibleRef(p.reference);
       } else {
-        setQueue((prev) => [...prev, verse]); // ← goes to queue instead
+        setQueue((q) => [v, ...q].slice(0, 20));
+        setRightTab("queue");
       }
     });
-
     return () => {
-      unsubT?.();
-      unsubV?.();
+      u1?.();
+      u2?.();
+      u3?.();
     };
-  }, []);
+  }, [translation]);
 
-  const toggleListening = async () => {
-    if (listening) {
-      await bb?.stopListening?.();
-      setListening(false);
-    } else {
-      await bb?.startListening?.();
-      setListening(true);
-    }
-  };
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).tagName === "INPUT") return;
+      if (e.key === "PageDown") {
+        e.preventDefault();
+        goNextVerse();
+      } else if (e.key === "PageUp") {
+        e.preventDefault();
+        goPrevVerse();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [verses, selectedVerse, selectedBook, selectedChapter]);
 
-  const toggleProjector = async () => {
-    if (projectorOpen) {
-      await bb?.closeProjector?.();
-    } else {
-      await bb?.openProjector?.();
-    }
-  };
-
-  const approve = useCallback((verse: DetectedVerse) => {
-    setCurrent(verse);
-    bb?.approveVerse?.(verse);
-    setQueue((q) => q.filter((v) => v.id !== verse.id));
-  }, []);
-
-  const reject = useCallback((verse: DetectedVerse) => {
-    setQueue((q) => q.filter((v) => v.id !== verse.id));
-  }, []);
-
-  const clearScreen = () => {
-    setCurrent(null);
+  function goLive(ref: VerseRef) {
+    setLiveVerse(ref);
+    setHistory((h) =>
+      [ref, ...h.filter((x) => x.reference !== ref.reference)].slice(0, 50),
+    );
+    bb?.approveVerse?.(ref);
+  }
+  function goPreview(ref: VerseRef) {
+    setPreviewVerse(ref);
+  }
+  function addBookmark(ref: VerseRef) {
+    setBookmarks((b) =>
+      b.find((x) => x.reference === ref.reference) ? b : [ref, ...b],
+    );
+  }
+  function removeBookmark(ref: string) {
+    setBookmarks((b) => b.filter((x) => x.reference !== ref));
+  }
+  function clearScreen() {
+    setLiveVerse(null);
+    setPreviewVerse(null);
     bb?.clearVerse?.();
-  };
+  }
 
-  const handleOverride = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!override.trim()) return;
-    await bb?.overrideVerse?.({ reference: override.trim() });
-    setOverride("");
-  };
+  function makeRef(v: VerseItem): VerseRef {
+    return {
+      reference: `${selectedBook} ${selectedChapter}:${v.verse}`,
+      verseText: v.text,
+      translation,
+    };
+  }
+  function sendVerseToLive(v: VerseItem) {
+    setSelectedVerse(v.verse);
+    goLive(makeRef(v));
+  }
+  function sendVerseToPreview(v: VerseItem) {
+    setSelectedVerse(v.verse);
+    goPreview(makeRef(v));
+  }
+  function bookmarkVerse(v: VerseItem) {
+    addBookmark(makeRef(v));
+    setRightTab("bookmarks");
+  }
+
+  function goNextVerse() {
+    if (!verses.length) return;
+    const idx = selectedVerse
+      ? verses.findIndex((v) => v.verse === selectedVerse)
+      : -1;
+    if (idx < verses.length - 1) {
+      sendVerseToLive(verses[idx + 1]);
+    } else {
+      const max = CHAPTER_COUNTS[selectedBook] || 1;
+      if (selectedChapter < max) setSelectedChapter((c) => c + 1);
+    }
+  }
+  function goPrevVerse() {
+    if (!verses.length) return;
+    const idx = selectedVerse
+      ? verses.findIndex((v) => v.verse === selectedVerse)
+      : 0;
+    if (idx > 0) {
+      sendVerseToLive(verses[idx - 1]);
+    } else if (selectedChapter > 1) setSelectedChapter((c) => c - 1);
+  }
+
+  function navigateToBibleRef(reference: string) {
+    const m = reference.match(/^(.+?)\s+(\d+):(\d+)/);
+    if (m) {
+      const book =
+        ALL_BOOKS.find((b) => b.toLowerCase() === m[1].toLowerCase()) || m[1];
+      setSelectedBook(book);
+      setSelectedChapter(parseInt(m[2]));
+      setSelectedVerse(parseInt(m[3]));
+    }
+  }
+
+  async function handleSearch(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    const parsed = parseSmartRef(searchQuery);
+    if (parsed) {
+      const data = await bb?.getVerses?.({
+        book: parsed.book,
+        chapter: parsed.chapter,
+        translation,
+      });
+      const match = data?.find((v: VerseItem) => v.verse === parsed.verse);
+      if (match) {
+        setSearchResults([
+          {
+            reference: `${parsed.book} ${parsed.chapter}:${parsed.verse}`,
+            verseText: match.text,
+            translation,
+          },
+        ]);
+        setSearching(false);
+        return;
+      }
+    }
+    const results =
+      (await bb?.searchVerses?.({ query: searchQuery, translation })) || [];
+    setSearchResults(results);
+    setSearching(false);
+  }
+
+  const chapterCount = CHAPTER_COUNTS[selectedBook] || 50;
+  const filteredBooks = ALL_BOOKS.filter((b) =>
+    b.toLowerCase().includes(bookSearch.toLowerCase()),
+  );
+  const LiveIcon = () => (
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="5,3 19,12 5,21" />
+    </svg>
+  );
+  const PrevIcon = () => (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+  const NextIcon = () => (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
 
   return (
     <div style={s.root}>
-      {/* Header */}
-      <header style={s.header}>
-        <div style={s.headerLeft}>
-          <div style={s.logoWrap}>
-            <div style={s.logoIcon}>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-              </svg>
-            </div>
+      {/* TOP BAR */}
+      <header style={s.topBar}>
+        <div style={s.topLeft}>
+          <div style={s.logo}>
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+            </svg>
             <span style={s.logoText}>BibleBeam</span>
           </div>
-          <div style={s.statusPills}>
+          {/* Translation switcher */}
+          <div style={s.transSwitcher}>
+            {TRANSLATIONS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTranslation(t)}
+                style={{
+                  ...s.transBtn,
+                  ...(translation === t ? s.transBtnOn : {}),
+                }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <div style={s.topPills}>
             {listening && (
               <span className="pill pill-green">
-                <span style={s.liveDot} />
+                <span style={s.dot} />
                 Live
               </span>
             )}
-            {projectorOpen && (
-              <span className="pill pill-blue">
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect width="20" height="15" x="2" y="3" rx="2" />
-                  <line x1="8" x2="16" y1="21" y2="21" />
-                  <line x1="12" x2="12" y1="18" y2="21" />
-                </svg>
-                Projector
+            {projectorOpen && <span className="pill pill-blue">Projector</span>}
+            {liveVerse && (
+              <span className="pill pill-amber">
+                <span style={{ ...s.dot, background: "var(--amber)" }} />{" "}
+                {liveVerse.reference}
               </span>
             )}
           </div>
         </div>
-        <div style={s.headerRight}>
+        <div style={s.topRight}>
+          <span style={s.kbdHint}>
+            <kbd style={s.kbd}>PgUp</kbd> prev · <kbd style={s.kbd}>PgDn</kbd>{" "}
+            next
+          </span>
           <button
-            onClick={toggleProjector}
-            style={projectorOpen ? s.btnProjectorActive : s.btnProjector}
-            title={
-              projectorOpen ? "Close projector window" : "Open projector window"
+            onClick={() =>
+              projectorOpen ? bb?.closeProjector?.() : bb?.openProjector?.()
             }
+            style={projectorOpen ? s.btnProjOn : s.btnProjOff}
           >
             <svg
-              width="14"
-              height="14"
+              width="12"
+              height="12"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 4 }}
             >
               <rect width="20" height="15" x="2" y="3" rx="2" />
               <line x1="8" x2="16" y1="21" y2="21" />
               <line x1="12" x2="12" y1="18" y2="21" />
             </svg>
-            {projectorOpen ? "Close projector" : "Open projector"}
+            {projectorOpen ? "Close" : "Open"} projector
           </button>
-          <button
-            onClick={() => navigate("/settings")}
-            style={s.btnGhost}
-            title="Settings"
-          >
+          <button onClick={() => navigate("/settings")} style={s.btnIcon}>
             <svg
               width="15"
               height="15"
@@ -224,25 +598,27 @@ export function Operator() {
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
             >
               <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
           <button
-            onClick={toggleListening}
+            onClick={() =>
+              listening
+                ? bb?.stopListening?.().then(() => setListening(false))
+                : bb?.startListening?.().then(() => setListening(true))
+            }
             style={listening ? s.btnStop : s.btnStart}
           >
             {listening ? (
               <>
                 <svg
-                  width="13"
-                  height="13"
+                  width="12"
+                  height="12"
                   viewBox="0 0 24 24"
                   fill="currentColor"
-                  style={{ marginRight: 6 }}
+                  style={{ marginRight: 4 }}
                 >
                   <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
@@ -251,15 +627,15 @@ export function Operator() {
             ) : (
               <>
                 <svg
-                  width="13"
-                  height="13"
+                  width="12"
+                  height="12"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  style={{ marginRight: 6 }}
+                  style={{ marginRight: 4 }}
                 >
                   <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
@@ -272,201 +648,620 @@ export function Operator() {
         </div>
       </header>
 
+      {/* BODY */}
       <div style={s.body}>
-        {/* Transcript */}
-        <section style={s.mainPanel}>
-          <div style={s.panelBar}>
-            <div style={s.panelBarLeft}>
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ color: "var(--text3)" }}
-              >
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span style={s.panelBarTitle}>Transcript</span>
+        {/* COL 1: Reference navigator */}
+        <div style={s.col1}>
+          <div style={s.colHdr}>Reference</div>
+          <div style={{ padding: "5px 5px 2px" }}>
+            <input
+              value={bookSearch}
+              onChange={(e) => setBookSearch(e.target.value)}
+              placeholder="Search books…"
+              style={s.bookSearch}
+            />
+          </div>
+          <div style={s.bookList}>
+            {bookSearch === "" && <div style={s.grpLabel}>OLD TESTAMENT</div>}
+            {filteredBooks
+              .filter((b) => bookSearch !== "" || OT_BOOKS.includes(b))
+              .map((b) => (
+                <button
+                  key={b}
+                  onClick={() => {
+                    setSelectedBook(b);
+                    setSelectedChapter(1);
+                  }}
+                  style={{
+                    ...s.bookBtn,
+                    ...(selectedBook === b ? s.bookBtnOn : {}),
+                  }}
+                >
+                  {b}
+                </button>
+              ))}
+            {bookSearch === "" && (
+              <div style={{ ...s.grpLabel, marginTop: 5 }}>NEW TESTAMENT</div>
+            )}
+            {filteredBooks
+              .filter((b) => bookSearch !== "" || NT_BOOKS.includes(b))
+              .map((b) => (
+                <button
+                  key={b}
+                  onClick={() => {
+                    setSelectedBook(b);
+                    setSelectedChapter(1);
+                  }}
+                  style={{
+                    ...s.bookBtn,
+                    ...(selectedBook === b ? s.bookBtnOn : {}),
+                  }}
+                >
+                  {b}
+                </button>
+              ))}
+          </div>
+          <div style={s.chWrap}>
+            <div style={s.secLabel}>Chapter</div>
+            <div style={s.chGrid}>
+              {Array.from({ length: chapterCount }, (_, i) => i + 1).map(
+                (ch) => (
+                  <button
+                    key={ch}
+                    onClick={() => setSelectedChapter(ch)}
+                    style={{
+                      ...s.chBtn,
+                      ...(selectedChapter === ch ? s.chBtnOn : {}),
+                    }}
+                  >
+                    {ch}
+                  </button>
+                ),
+              )}
             </div>
-            <span className="pill pill-gray" style={{ fontSize: 9 }}>
-              {listening ? "LISTENING" : "IDLE"}
+          </div>
+          <div style={s.arrowRow}>
+            <button onClick={goPrevVerse} style={s.arrBtn} title="Prev verse">
+              <PrevIcon />
+            </button>
+            <button onClick={goNextVerse} style={s.arrBtn} title="Next verse">
+              <NextIcon />
+            </button>
+            <button
+              onClick={() => setSelectedChapter((c) => Math.max(1, c - 1))}
+              style={s.arrBtn}
+              title="Prev chapter"
+            >
+              ▲
+            </button>
+            <button
+              onClick={() =>
+                setSelectedChapter((c) => Math.min(chapterCount, c + 1))
+              }
+              style={s.arrBtn}
+              title="Next chapter"
+            >
+              ▼
+            </button>
+          </div>
+        </div>
+
+        {/* COL 2: Verse browser */}
+        <div style={s.col2}>
+          <div style={s.col2Hdr}>
+            <span style={s.col2Title}>
+              {selectedBook} {selectedChapter}{" "}
+              <span style={s.col2Sub}>({translation})</span>
             </span>
+            <div style={{ display: "flex", gap: 3 }}>
+              <button
+                onClick={() => setSelectedChapter((c) => Math.max(1, c - 1))}
+                style={s.navBtn}
+              >
+                ‹
+              </button>
+              <button
+                onClick={() =>
+                  setSelectedChapter((c) => Math.min(chapterCount, c + 1))
+                }
+                style={s.navBtn}
+              >
+                ›
+              </button>
+            </div>
           </div>
 
-          <div style={s.transcriptBody}>
-            {transcript.length === 0 ? (
-              <div style={s.emptyState}>
-                <div style={s.emptyIcon}>
-                  <svg
-                    width="28"
-                    height="28"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" x2="12" y1="19" y2="22" />
-                  </svg>
-                </div>
-                <span style={s.emptyTitle}>
-                  {listening ? "Waiting for speech..." : "Ready to listen"}
-                </span>
-                <span style={s.emptyDesc}>
-                  {listening
-                    ? "Speak into the microphone — transcript appears here in real time."
-                    : 'Press "Start listening" to begin detecting Bible verses from speech.'}
+          <div style={s.verseList} ref={verseListRef}>
+            {verses.length === 0 ? (
+              <div style={s.emptyPane}>
+                <svg
+                  width="30"
+                  height="30"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  style={{ color: "var(--text4)", marginBottom: 8 }}
+                >
+                  <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                </svg>
+                <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                  Wire bb.getVerses() to load verses
                 </span>
               </div>
             ) : (
-              transcript.map((line) => (
-                <div
-                  key={line.id}
-                  style={{
-                    ...s.tLine,
-                    opacity: line.isFinal ? 1 : 0.35,
-                  }}
-                >
-                  <span style={s.tTime}>
-                    {new Date(line.ts).toLocaleTimeString("en", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </span>
-                  <span>{line.text}</span>
-                </div>
-              ))
+              verses.map((v) => {
+                const ref = `${selectedBook} ${selectedChapter}:${v.verse}`;
+                const isLive = liveVerse?.reference === ref;
+                const isPreview = previewVerse?.reference === ref && !isLive;
+                const isSelected =
+                  selectedVerse === v.verse && !isLive && !isPreview;
+                const isBookmarked = bookmarks.some((b) => b.reference === ref);
+                return (
+                  <div
+                    key={v.verse}
+                    data-verse={v.verse}
+                    style={{
+                      ...s.vRow,
+                      ...(isLive
+                        ? s.vRowLive
+                        : isPreview
+                          ? s.vRowPreview
+                          : isSelected
+                            ? s.vRowSel
+                            : {}),
+                    }}
+                  >
+                    <span style={s.vNum}>{v.verse}</span>
+                    <span style={s.vText} onClick={() => sendVerseToPreview(v)}>
+                      {v.text}
+                    </span>
+                    <div style={s.vBtns}>
+                      <button
+                        onClick={() => sendVerseToLive(v)}
+                        style={s.playBtn}
+                        title="Send to projector (live)"
+                      >
+                        <LiveIcon />
+                      </button>
+                      <button
+                        onClick={() => bookmarkVerse(v)}
+                        style={{
+                          ...s.bmBtn,
+                          ...(isBookmarked ? s.bmBtnOn : {}),
+                        }}
+                        title="Bookmark"
+                      >
+                        {isBookmarked ? "★" : "+"}
+                      </button>
+                    </div>
+                    {isLive && <span style={s.liveTag}>LIVE</span>}
+                    {isPreview && <span style={s.previewTag}>PREVIEW</span>}
+                  </div>
+                );
+              })
             )}
-            <div ref={transcriptEndRef} />
           </div>
-        </section>
 
-        {/* Sidebar */}
-        <aside style={s.sidebar}>
-          {/* Queue */}
-          <div style={s.sideSection}>
-            <div style={s.panelBar}>
-              <div style={s.panelBarLeft}>
-                <span style={s.panelBarTitle}>Queue</span>
-                {queue.length > 0 && (
-                  <span className="pill pill-amber">{queue.length}</span>
+          {/* Search */}
+          <div style={s.searchWrap}>
+            <div style={s.searchLabel}>
+              Search{" "}
+              <span style={{ fontWeight: 400, color: "var(--text4)" }}>
+                — "gen 1 1", "matt 7 7", or any phrase
+              </span>
+            </div>
+            <form onSubmit={handleSearch} style={s.searchRow}>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder='gen 1 1 · john 3 16 · "love one another"'
+                style={s.searchInput}
+              />
+              <button type="submit" style={s.searchBtn} disabled={searching}>
+                {searching ? "…" : "Search"}
+              </button>
+            </form>
+            {searchResults.length > 0 && (
+              <div style={s.srList}>
+                {searchResults.slice(0, 30).map((r, i) => (
+                  <div
+                    key={i}
+                    style={s.srRow}
+                    onClick={() => {
+                      navigateToBibleRef(r.reference);
+                      goPreview(r);
+                    }}
+                  >
+                    <span style={s.srRef}>{r.reference}</span>
+                    <span style={s.srText}>{r.verseText}</span>
+                    <div style={s.srBtns}>
+                      <button
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          goLive(r);
+                        }}
+                        style={s.playBtn}
+                        title="Live"
+                      >
+                        <LiveIcon />
+                      </button>
+                      <button
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          addBookmark(r);
+                          setRightTab("bookmarks");
+                        }}
+                        style={s.bmBtn}
+                        title="Bookmark"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* COL 3: Monitor + panels */}
+        <div style={s.col3}>
+          {/* BIG MONITOR PREVIEW - top, prominent */}
+          <div style={s.monBlock}>
+            <div style={s.monHdr}>
+              <span style={s.monLabel}>
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  style={{ marginRight: 4 }}
+                >
+                  <rect width="20" height="15" x="2" y="3" rx="2" />
+                  <line x1="8" x2="16" y1="21" y2="21" />
+                  <line x1="12" x2="12" y1="18" y2="21" />
+                </svg>
+                Monitor
+              </span>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                {liveVerse && (
+                  <span className="pill pill-green" style={{ fontSize: 9 }}>
+                    LIVE
+                  </span>
+                )}
+                {previewVerse && !liveVerse && (
+                  <span className="pill pill-amber" style={{ fontSize: 9 }}>
+                    PREVIEW
+                  </span>
+                )}
+                {liveVerse && (
+                  <button onClick={clearScreen} style={s.clearBtn}>
+                    Clear
+                  </button>
                 )}
               </div>
             </div>
-            <div style={s.sideSectionBody}>
-              {queue.length === 0 ? (
-                <p style={s.sideEmpty}>No verses pending</p>
-              ) : (
-                queue.map((verse) => (
-                  <div key={verse.id} style={s.qCard} className="animate-in">
-                    <div style={s.qMeta}>
-                      <span style={s.qRef}>{verse.reference}</span>
-                      <span
-                        className={`pill pill-${verse.method === "regex" ? "green" : verse.method === "fuzzy" ? "amber" : "purple"}`}
-                      >
-                        {verse.method}
-                      </span>
-                    </div>
-                    <p style={s.qPreview}>
-                      {verse.verseText?.slice(0, 100)}
-                      {(verse.verseText?.length ?? 0) > 100 ? "…" : ""}
-                    </p>
-                    <div style={s.qBar}>
-                      <div style={s.qTrack}>
-                        <div
-                          style={{
-                            height: "100%",
-                            borderRadius: 2,
-                            width: `${verse.confidence * 100}%`,
-                            background:
-                              verse.confidence >= 0.8
-                                ? "var(--accent)"
-                                : "var(--amber)",
-                            transition: "width 0.3s ease",
-                          }}
-                        />
+            <div style={s.monScreen}>
+              {liveVerse || previewVerse ? (
+                (() => {
+                  const v = liveVerse || previewVerse!;
+                  return (
+                    <div style={s.monContent}>
+                      <div style={s.monRef}>
+                        {v.reference} · {v.translation}
                       </div>
-                      <span style={s.qScore}>
-                        {Math.round(verse.confidence * 100)}%
-                      </span>
+                      <div style={s.monVerse}>{v.verseText}</div>
                     </div>
-                    <div style={s.qActions}>
-                      <button
-                        onClick={() => approve(verse)}
-                        style={s.btnApprove}
-                      >
-                        Show
-                      </button>
-                      <button onClick={() => reject(verse)} style={s.btnReject}>
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })()
+              ) : (
+                <div style={s.monEmpty}>
+                  <svg
+                    width="36"
+                    height="36"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    style={{ opacity: 0.15, marginBottom: 6 }}
+                  >
+                    <rect width="20" height="15" x="2" y="3" rx="2" />
+                    <line x1="8" x2="16" y1="21" y2="21" />
+                    <line x1="12" x2="12" y1="18" y2="21" />
+                  </svg>
+                  <span
+                    style={{ fontSize: 11, color: "rgba(255,255,255,0.15)" }}
+                  >
+                    No verse on screen
+                  </span>
+                </div>
               )}
+            </div>
+            <div style={s.monCtrlRow}>
+              <button onClick={goPrevVerse} style={s.monNavBtn}>
+                <PrevIcon />
+              </button>
+              <button
+                onClick={() => {
+                  if (previewVerse) goLive(previewVerse);
+                }}
+                style={s.monShowBtn}
+                disabled={!previewVerse}
+              >
+                Show on Projector
+              </button>
+              <button onClick={goNextVerse} style={s.monNavBtn}>
+                <NextIcon />
+              </button>
             </div>
           </div>
 
-          {/* On screen */}
-          <div style={s.sideSection}>
-            <div style={s.panelBar}>
-              <div style={s.panelBarLeft}>
-                <span style={s.panelBarTitle}>On screen</span>
-                {current && <span className="pill pill-green">Live</span>}
-              </div>
-            </div>
-            <div style={s.sideSectionBody}>
-              {current ? (
-                <div style={s.currentCard}>
-                  <div style={s.currentMeta}>
-                    <span style={s.currentRef}>{current.reference}</span>
-                    <span style={s.currentTranslation}>
-                      {current.translation}
+          {/* Tabs: History / Bookmarks / AI Queue */}
+          <div style={s.rTabs}>
+            {(["history", "bookmarks", "queue"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setRightTab(tab)}
+                style={{ ...s.rTab, ...(rightTab === tab ? s.rTabOn : {}) }}
+              >
+                {tab === "history"
+                  ? "History"
+                  : tab === "bookmarks"
+                    ? `Bookmarks${bookmarks.length ? ` (${bookmarks.length})` : ""}`
+                    : `AI Queue${queue.length ? ` (${queue.length})` : ""}`}
+              </button>
+            ))}
+          </div>
+
+          <div style={s.rBody}>
+            {/* HISTORY */}
+            {rightTab === "history" && (
+              <div style={s.listPane}>
+                {history.length === 0 ? (
+                  <div style={s.emptyPane}>
+                    <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                      No history yet
                     </span>
                   </div>
-                  <p style={s.currentText}>"{current.verseText}"</p>
-                  <button onClick={clearScreen} style={s.btnClear}>
-                    Clear screen
-                  </button>
-                </div>
-              ) : (
-                <p style={s.sideEmpty}>
-                  {projectorOpen ? "Nothing displayed" : "Projector not open"}
-                </p>
-              )}
-            </div>
-          </div>
+                ) : (
+                  history.map((v, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        ...s.listRow,
+                        ...(liveVerse?.reference === v.reference
+                          ? s.listRowLive
+                          : {}),
+                      }}
+                    >
+                      <div
+                        onClick={() => {
+                          navigateToBibleRef(v.reference);
+                          goLive(v);
+                        }}
+                        style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
+                      >
+                        <div style={s.listRef}>
+                          {v.reference}{" "}
+                          <span style={s.listTrans}>{v.translation}</span>
+                        </div>
+                        <div style={s.listText}>
+                          {v.verseText?.slice(0, 65)}
+                          {(v.verseText?.length ?? 0) > 65 ? "…" : ""}
+                        </div>
+                      </div>
+                      <div style={s.listBtns}>
+                        <button
+                          onClick={() => goLive(v)}
+                          style={s.playBtn}
+                          title="Live"
+                        >
+                          <LiveIcon />
+                        </button>
+                        <button
+                          onClick={() => addBookmark(v)}
+                          style={s.bmBtn}
+                          title="Bookmark"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
 
-          {/* Override */}
-          <div style={s.sideSection}>
-            <div style={s.panelBar}>
-              <span style={s.panelBarTitle}>Manual override</span>
-            </div>
-            <form onSubmit={handleOverride} style={s.overrideForm}>
-              <input
-                value={override}
-                onChange={(e) => setOverride(e.target.value)}
-                placeholder="e.g. John 3:16"
-                style={s.overrideInput}
-              />
-              <button
-                type="submit"
-                disabled={!override.trim()}
-                style={s.btnOverride}
-              >
-                Show
-              </button>
-            </form>
+            {/* BOOKMARKS */}
+            {rightTab === "bookmarks" && (
+              <div style={s.listPane}>
+                {bookmarks.length === 0 ? (
+                  <div style={s.emptyPane}>
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      style={{ color: "var(--text4)", marginBottom: 5 }}
+                    >
+                      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                      No bookmarks yet
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "var(--text4)",
+                        textAlign: "center",
+                        marginTop: 2,
+                      }}
+                    >
+                      Click + on any verse to bookmark it
+                    </span>
+                  </div>
+                ) : (
+                  bookmarks.map((v, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        ...s.listRow,
+                        ...(liveVerse?.reference === v.reference
+                          ? s.listRowLive
+                          : {}),
+                      }}
+                    >
+                      <div
+                        onClick={() => goPreview(v)}
+                        style={{ cursor: "pointer", flex: 1, minWidth: 0 }}
+                        title="Click → preview  •  Double-click → live"
+                      >
+                        <div style={s.listRef}>
+                          {v.reference}{" "}
+                          <span style={s.listTrans}>{v.translation}</span>
+                        </div>
+                        <div style={s.listText}>
+                          {v.verseText?.slice(0, 65)}
+                          {(v.verseText?.length ?? 0) > 65 ? "…" : ""}
+                        </div>
+                      </div>
+                      <div style={s.listBtns}>
+                        <button
+                          onClick={() => goPreview(v)}
+                          style={s.previewBtn}
+                          title="Preview"
+                        >
+                          <svg
+                            width="9"
+                            height="9"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                          >
+                            <rect width="18" height="14" x="3" y="5" rx="2" />
+                            <polyline points="10,9 15,12 10,15" />
+                          </svg>
+                        </button>
+                        <button
+                          onDoubleClick={() => goLive(v)}
+                          onClick={() => goLive(v)}
+                          style={s.playBtn}
+                          title="Live (double-tap)"
+                        >
+                          <LiveIcon />
+                        </button>
+                        <button
+                          onClick={() => removeBookmark(v.reference)}
+                          style={s.rmBtn}
+                          title="Remove"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* AI QUEUE */}
+            {rightTab === "queue" && (
+              <div style={s.listPane}>
+                {queue.length === 0 ? (
+                  <div style={s.emptyPane}>
+                    <span style={{ fontSize: 12, color: "var(--text3)" }}>
+                      {listening
+                        ? "Listening for Bible verses…"
+                        : "Start listening to detect verses"}
+                    </span>
+                  </div>
+                ) : (
+                  queue.map((v) => (
+                    <div key={v.id} style={s.qCard} className="animate-in">
+                      <div style={s.qTop}>
+                        <span style={s.qRef}>{v.reference}</span>
+                        <span
+                          className={`pill pill-${v.method === "regex" ? "green" : v.method === "fuzzy" ? "amber" : "purple"}`}
+                        >
+                          {v.method}
+                        </span>
+                      </div>
+                      <p style={s.qText}>
+                        {v.verseText?.slice(0, 75)}
+                        {(v.verseText?.length ?? 0) > 75 ? "…" : ""}
+                      </p>
+                      <div style={s.qConf}>
+                        <div style={s.qBar}>
+                          <div
+                            style={{
+                              height: "100%",
+                              borderRadius: 2,
+                              width: `${v.confidence * 100}%`,
+                              background:
+                                v.confidence >= 0.8
+                                  ? "var(--accent)"
+                                  : "var(--amber)",
+                            }}
+                          />
+                        </div>
+                        <span style={s.qScore}>
+                          {Math.round(v.confidence * 100)}%
+                        </span>
+                      </div>
+                      <div style={s.qBtns}>
+                        <button
+                          onClick={() => {
+                            goLive(v);
+                            setQueue((q) => q.filter((x) => x.id !== v.id));
+                            navigateToBibleRef(v.reference);
+                          }}
+                          style={s.btnShow}
+                        >
+                          Show
+                        </button>
+                        <button
+                          onClick={() =>
+                            setQueue((q) => q.filter((x) => x.id !== v.id))
+                          }
+                          style={s.btnDismiss}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+                {transcript.length > 0 && (
+                  <div style={s.txMini} ref={transcriptRef}>
+                    {transcript.slice(-8).map((l) => (
+                      <div
+                        key={l.id}
+                        style={{ ...s.txLine, opacity: l.isFinal ? 1 : 0.4 }}
+                      >
+                        <span style={s.txTime}>
+                          {new Date(l.ts).toLocaleTimeString("en", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          })}
+                        </span>
+                        <span style={{ fontSize: 10, color: "var(--text3)" }}>
+                          {l.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </aside>
+        </div>
       </div>
     </div>
   );
@@ -480,27 +1275,23 @@ const s: Record<string, React.CSSProperties> = {
     background: "var(--bg)",
     overflow: "hidden",
   },
-  header: {
+  // topbar
+  topBar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "0 12px 0 16px",
-    height: 48,
+    height: 46,
+    padding: "0 10px 0 12px",
     borderBottom: "1px solid var(--border)",
     background: "var(--bg2)",
     flexShrink: 0,
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: 12 },
-  headerRight: { display: "flex", alignItems: "center", gap: 6 },
-  logoWrap: { display: "flex", alignItems: "center", gap: 8 },
-  logoIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: "var(--radius)",
-    background: "var(--accent-dim)",
+  topLeft: { display: "flex", alignItems: "center", gap: 8 },
+  topRight: { display: "flex", alignItems: "center", gap: 5 },
+  logo: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
     color: "var(--accent)",
   },
   logoText: {
@@ -509,8 +1300,8 @@ const s: Record<string, React.CSSProperties> = {
     letterSpacing: "-0.03em",
     color: "var(--text)",
   },
-  statusPills: { display: "flex", gap: 6 },
-  liveDot: {
+  topPills: { display: "flex", gap: 5 },
+  dot: {
     width: 6,
     height: 6,
     borderRadius: "50%",
@@ -518,238 +1309,577 @@ const s: Record<string, React.CSSProperties> = {
     display: "inline-block",
     animation: "pulse-dot 1.5s ease-in-out infinite",
   },
-
+  transSwitcher: {
+    display: "flex",
+    gap: 2,
+    background: "var(--bg3)",
+    padding: "2px",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid var(--border)",
+  },
+  transBtn: {
+    padding: "3px 7px",
+    fontSize: 10,
+    fontWeight: 600,
+    fontFamily: "var(--mono)",
+    background: "transparent",
+    color: "var(--text3)",
+    borderRadius: "var(--radius-sm)",
+    letterSpacing: "0.04em",
+  },
+  transBtnOn: { background: "var(--accent)", color: "var(--text-inverse)" },
+  kbdHint: { fontSize: 10, color: "var(--text4)" },
+  kbd: {
+    background: "var(--bg3)",
+    border: "1px solid var(--border2)",
+    borderRadius: 3,
+    padding: "1px 4px",
+    fontFamily: "var(--mono)",
+    fontSize: 9,
+    color: "var(--text3)",
+  },
   btnStart: {
     display: "inline-flex",
     alignItems: "center",
     background: "var(--accent)",
     color: "var(--text-inverse)",
-    padding: "6px 14px",
+    padding: "5px 12px",
     fontWeight: 600,
     fontSize: 12,
+    borderRadius: "var(--radius)",
   },
   btnStop: {
     display: "inline-flex",
     alignItems: "center",
     background: "var(--red)",
     color: "#fff",
-    padding: "6px 14px",
+    padding: "5px 12px",
     fontWeight: 600,
     fontSize: 12,
+    borderRadius: "var(--radius)",
   },
-  btnGhost: {
+  btnIcon: {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     background: "transparent",
     color: "var(--text2)",
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     padding: 0,
     borderRadius: "var(--radius)",
   },
-  btnProjector: {
+  btnProjOff: {
     display: "inline-flex",
     alignItems: "center",
     background: "var(--bg3)",
     border: "1px solid var(--border2)",
     color: "var(--text2)",
-    padding: "6px 12px",
-    fontSize: 12,
+    padding: "4px 9px",
+    fontSize: 11,
+    borderRadius: "var(--radius)",
   },
-  btnProjectorActive: {
+  btnProjOn: {
     display: "inline-flex",
     alignItems: "center",
     background: "var(--blue-dim)",
     border: "1px solid var(--blue-border)",
     color: "var(--blue)",
-    padding: "6px 12px",
-    fontSize: 12,
-  },
-  btnApprove: {
-    flex: 1,
-    background: "var(--accent-dim)",
-    border: "1px solid var(--accent-border)",
-    color: "var(--accent)",
-    padding: "5px 10px",
+    padding: "4px 9px",
     fontSize: 11,
-    fontWeight: 600,
+    borderRadius: "var(--radius)",
   },
-  btnReject: {
-    background: "var(--red-dim)",
-    border: "1px solid var(--red-border)",
-    color: "var(--red)",
-    padding: "5px 10px",
-    fontSize: 11,
-    fontWeight: 600,
+  // body
+  body: { display: "flex", flex: 1, overflow: "hidden" },
+  // col1
+  col1: {
+    width: 175,
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
+    borderRight: "1px solid var(--border)",
+    background: "var(--bg2)",
+    overflow: "hidden",
   },
-  btnClear: {
+  colHdr: {
+    padding: "7px 8px 5px",
+    fontSize: 10,
+    fontWeight: 700,
+    color: "var(--text3)",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontFamily: "var(--mono)",
+    borderBottom: "1px solid var(--border-subtle)",
+    flexShrink: 0,
+  },
+  bookSearch: { padding: "4px 6px", fontSize: 11, width: "100%" },
+  bookList: { flex: "1 1 0", overflowY: "auto", padding: "0 3px" },
+  grpLabel: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: "var(--text4)",
+    letterSpacing: "0.1em",
+    padding: "4px 5px 1px",
+    textTransform: "uppercase",
+  },
+  bookBtn: {
     width: "100%",
-    marginTop: 8,
+    textAlign: "left",
+    padding: "4px 5px",
+    fontSize: 11,
+    background: "transparent",
+    color: "var(--text2)",
+    borderRadius: "var(--radius-sm)",
+  },
+  bookBtnOn: {
+    background: "var(--accent-dim)",
+    color: "var(--accent)",
+    fontWeight: 600,
+  },
+  chWrap: {
+    flexShrink: 0,
+    borderTop: "1px solid var(--border)",
+    padding: "5px",
+    maxHeight: 155,
+    overflowY: "auto",
+  },
+  secLabel: {
+    fontSize: 9,
+    fontWeight: 700,
+    color: "var(--text4)",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    marginBottom: 3,
+  },
+  chGrid: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 2 },
+  chBtn: {
+    padding: "3px 1px",
+    fontSize: 10,
+    textAlign: "center",
+    background: "var(--bg3)",
+    color: "var(--text2)",
+    borderRadius: 3,
+  },
+  chBtnOn: {
+    background: "var(--accent)",
+    color: "var(--text-inverse)",
+    fontWeight: 700,
+  },
+  arrowRow: {
+    display: "flex",
+    gap: 3,
+    padding: "5px",
+    borderTop: "1px solid var(--border)",
+    flexShrink: 0,
+  },
+  arrBtn: {
+    flex: 1,
+    padding: "5px 0",
+    fontSize: 12,
     background: "var(--bg3)",
     border: "1px solid var(--border2)",
     color: "var(--text2)",
-    padding: "5px 10px",
-    fontSize: 11,
+    borderRadius: "var(--radius-sm)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  btnOverride: {
-    background: "var(--bg-active)",
-    border: "1px solid var(--border2)",
-    color: "var(--text)",
-    padding: "7px 14px",
-    fontSize: 12,
-    fontWeight: 500,
-    flexShrink: 0,
-  },
-
-  body: { display: "flex", flex: 1, overflow: "hidden" },
-
-  mainPanel: {
+  // col2
+  col2: {
     flex: 1,
     display: "flex",
     flexDirection: "column",
     borderRight: "1px solid var(--border)",
     overflow: "hidden",
   },
-  panelBar: {
+  col2Hdr: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: "8px 16px",
-    height: 36,
+    padding: "6px 10px",
+    height: 35,
     borderBottom: "1px solid var(--border-subtle)",
     background: "var(--bg2)",
     flexShrink: 0,
   },
-  panelBarLeft: { display: "flex", alignItems: "center", gap: 8 },
-  panelBarTitle: {
+  col2Title: { fontSize: 14, fontWeight: 600, letterSpacing: "-0.02em" },
+  col2Sub: { fontSize: 11, color: "var(--text3)", fontWeight: 400 },
+  navBtn: {
+    padding: "2px 8px",
+    fontSize: 13,
+    background: "var(--bg3)",
+    border: "1px solid var(--border2)",
+    color: "var(--text2)",
+    borderRadius: "var(--radius-sm)",
+  },
+  verseList: { flex: 1, overflowY: "auto" },
+  vRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 7,
+    padding: "6px 10px",
+    borderBottom: "1px solid var(--border-subtle)",
+    cursor: "pointer",
+    position: "relative",
+    transition: "background 80ms",
+  },
+  vRowLive: {
+    background: "rgba(34,197,94,0.09)",
+    borderLeft: "3px solid var(--accent)",
+  },
+  vRowPreview: {
+    background: "rgba(245,158,11,0.07)",
+    borderLeft: "3px solid var(--amber)",
+  },
+  vRowSel: { background: "var(--bg-hover)" },
+  vNum: {
     fontFamily: "var(--mono)",
     fontSize: 10,
-    fontWeight: 500,
+    fontWeight: 700,
+    color: "var(--accent)",
+    minWidth: 18,
+    flexShrink: 0,
+    paddingTop: 2,
+  },
+  vText: { flex: 1, fontSize: 13, lineHeight: 1.65, color: "var(--text)" },
+  vBtns: { display: "flex", gap: 2, flexShrink: 0, paddingTop: 2 },
+  playBtn: {
+    width: 20,
+    height: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--accent-dim)",
+    border: "1px solid var(--accent-border)",
+    color: "var(--accent)",
+    borderRadius: 3,
+  },
+  bmBtn: {
+    width: 20,
+    height: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--bg3)",
+    border: "1px solid var(--border2)",
+    color: "var(--text2)",
+    borderRadius: 3,
+    fontSize: 12,
+  },
+  bmBtnOn: {
+    background: "var(--amber-dim)",
+    border: "1px solid var(--amber-border)",
+    color: "var(--amber)",
+  },
+  liveTag: {
+    position: "absolute",
+    right: 4,
+    top: 3,
+    fontSize: 8,
+    fontFamily: "var(--mono)",
+    fontWeight: 700,
+    color: "var(--accent)",
+    letterSpacing: "0.06em",
+  },
+  previewTag: {
+    position: "absolute",
+    right: 4,
+    top: 3,
+    fontSize: 8,
+    fontFamily: "var(--mono)",
+    fontWeight: 700,
+    color: "var(--amber)",
+    letterSpacing: "0.06em",
+  },
+  // search
+  searchWrap: {
+    flexShrink: 0,
+    borderTop: "1px solid var(--border)",
+    background: "var(--bg2)",
+    padding: "7px 10px",
+  },
+  searchLabel: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: "var(--text3)",
+    fontFamily: "var(--mono)",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    marginBottom: 4,
+  },
+  searchRow: { display: "flex", gap: 5 },
+  searchInput: {
+    flex: 1,
+    fontSize: 11,
+    padding: "5px 7px",
+    fontFamily: "var(--mono)",
+  },
+  searchBtn: {
+    padding: "5px 10px",
+    fontSize: 11,
+    fontWeight: 600,
+    background: "var(--accent)",
+    color: "var(--text-inverse)",
+    borderRadius: "var(--radius)",
+  },
+  srList: {
+    marginTop: 5,
+    maxHeight: 155,
+    overflowY: "auto",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-md)",
+  },
+  srRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 6,
+    padding: "5px 7px",
+    borderBottom: "1px solid var(--border-subtle)",
+    cursor: "pointer",
+  },
+  srRef: {
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    fontWeight: 700,
+    color: "var(--accent)",
+    minWidth: 75,
+    flexShrink: 0,
+  },
+  srText: { flex: 1, fontSize: 11, color: "var(--text2)", lineHeight: 1.4 },
+  srBtns: { display: "flex", gap: 3, flexShrink: 0 },
+  // col3
+  col3: {
+    width: 290,
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
+    background: "var(--bg)",
+    overflow: "hidden",
+  },
+  monBlock: {
+    flexShrink: 0,
+    background: "var(--bg2)",
+    borderBottom: "1px solid var(--border)",
+  },
+  monHdr: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "5px 9px",
+    height: 30,
+    borderBottom: "1px solid var(--border-subtle)",
+  },
+  monLabel: {
+    display: "flex",
+    alignItems: "center",
+    fontSize: 10,
+    fontWeight: 700,
     color: "var(--text3)",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
-  },
-
-  transcriptBody: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "8px 16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-  },
-  tLine: {
-    display: "flex",
-    gap: 12,
-    alignItems: "baseline",
-    padding: "3px 0",
-    fontSize: 13,
-    lineHeight: 1.6,
-  },
-  tTime: {
     fontFamily: "var(--mono)",
-    color: "var(--text3)",
-    fontSize: 10,
-    flexShrink: 0,
-    minWidth: 68,
   },
-
-  emptyState: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    padding: 40,
+  clearBtn: {
+    padding: "2px 7px",
+    fontSize: 9,
+    background: "var(--red-dim)",
+    border: "1px solid var(--red-border)",
+    color: "var(--red)",
+    borderRadius: "var(--radius-sm)",
   },
-  emptyIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: "var(--radius-lg)",
-    background: "var(--bg3)",
+  monScreen: {
+    background: "#000",
+    margin: "7px",
+    borderRadius: "var(--radius-md)",
+    border: "1px solid #1e1e1e",
+    minHeight: 155,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "var(--text3)",
+    padding: "14px",
+    overflow: "hidden",
+  },
+  monContent: { textAlign: "center", width: "100%" },
+  monRef: {
+    fontSize: 9,
+    fontFamily: "var(--mono)",
+    color: "rgba(255,255,255,0.28)",
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
     marginBottom: 8,
   },
-  emptyTitle: { fontSize: 14, fontWeight: 500, color: "var(--text2)" },
-  emptyDesc: {
-    fontSize: 12,
-    color: "var(--text3)",
-    textAlign: "center",
-    maxWidth: 300,
-    lineHeight: 1.6,
-  },
-
-  sidebar: {
-    width: 320,
-    flexShrink: 0,
+  monVerse: { fontSize: 14, color: "#fff", lineHeight: 1.55, fontWeight: 300 },
+  monEmpty: {
     display: "flex",
     flexDirection: "column",
-    overflowY: "auto",
-    background: "var(--bg)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sideSection: { borderBottom: "1px solid var(--border)" },
-  sideSectionBody: { padding: 0 },
-  sideEmpty: {
-    padding: "20px 16px",
+  monCtrlRow: { display: "flex", gap: 4, padding: "0 7px 7px" },
+  monNavBtn: {
+    width: 30,
+    height: 26,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--bg3)",
+    border: "1px solid var(--border2)",
+    color: "var(--text2)",
+    borderRadius: "var(--radius-sm)",
+  },
+  monShowBtn: {
+    flex: 1,
+    padding: "5px",
+    fontSize: 11,
+    fontWeight: 600,
+    background: "var(--accent)",
+    color: "var(--text-inverse)",
+    borderRadius: "var(--radius-sm)",
+  },
+  // right tabs
+  rTabs: {
+    display: "flex",
+    borderBottom: "1px solid var(--border)",
+    flexShrink: 0,
+  },
+  rTab: {
+    flex: 1,
+    padding: "6px 2px",
+    fontSize: 10,
+    fontWeight: 600,
+    background: "transparent",
     color: "var(--text3)",
-    fontSize: 12,
-    textAlign: "center",
+    borderBottom: "2px solid transparent",
+    borderRadius: 0,
   },
-
-  qCard: {
-    padding: "10px 16px",
+  rTabOn: { color: "var(--text)", borderBottomColor: "var(--accent)" },
+  rBody: {
+    flex: 1,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+  },
+  listPane: {
+    flex: 1,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+  },
+  listRow: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 6,
+    padding: "7px 9px",
     borderBottom: "1px solid var(--border-subtle)",
   },
-  qMeta: {
+  listRowLive: {
+    background: "rgba(34,197,94,0.07)",
+    borderLeft: "3px solid var(--accent)",
+  },
+  listRef: {
+    fontFamily: "var(--mono)",
+    fontSize: 11,
+    fontWeight: 700,
+    marginBottom: 1,
+  },
+  listTrans: {
+    fontFamily: "var(--mono)",
+    fontSize: 9,
+    color: "var(--text4)",
+    textTransform: "uppercase",
+    fontWeight: 400,
+    marginLeft: 4,
+  },
+  listText: { fontSize: 11, color: "var(--text3)", lineHeight: 1.4 },
+  listBtns: { display: "flex", gap: 3, flexShrink: 0, paddingTop: 1 },
+  previewBtn: {
+    width: 20,
+    height: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--amber-dim)",
+    border: "1px solid var(--amber-border)",
+    color: "var(--amber)",
+    borderRadius: 3,
+  },
+  rmBtn: {
+    width: 20,
+    height: 20,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--red-dim)",
+    border: "1px solid var(--red-border)",
+    color: "var(--red)",
+    borderRadius: 3,
+    fontSize: 9,
+  },
+  qCard: { padding: "7px 9px", borderBottom: "1px solid var(--border-subtle)" },
+  qTop: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  qRef: { fontFamily: "var(--mono)", fontSize: 12, fontWeight: 600 },
-  qPreview: {
+  qRef: { fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700 },
+  qText: {
     fontSize: 11,
     color: "var(--text2)",
-    lineHeight: 1.5,
-    marginBottom: 6,
+    lineHeight: 1.4,
+    marginBottom: 4,
   },
-  qBar: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 },
-  qTrack: {
+  qConf: { display: "flex", alignItems: "center", gap: 5, marginBottom: 5 },
+  qBar: {
     flex: 1,
     height: 3,
     background: "var(--bg3)",
     borderRadius: 2,
     overflow: "hidden",
   },
-  qScore: { fontFamily: "var(--mono)", fontSize: 10, color: "var(--text3)" },
-  qActions: { display: "flex", gap: 6 },
-
-  currentCard: { padding: "10px 16px" },
-  currentMeta: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 6,
-  },
-  currentRef: { fontFamily: "var(--mono)", fontSize: 13, fontWeight: 600 },
-  currentTranslation: {
-    fontFamily: "var(--mono)",
+  qScore: { fontFamily: "var(--mono)", fontSize: 9, color: "var(--text3)" },
+  qBtns: { display: "flex", gap: 4 },
+  btnShow: {
+    flex: 1,
+    padding: "4px 7px",
     fontSize: 10,
-    color: "var(--text3)",
-    textTransform: "uppercase",
+    fontWeight: 600,
+    background: "var(--accent-dim)",
+    border: "1px solid var(--accent-border)",
+    color: "var(--accent)",
+    borderRadius: "var(--radius-sm)",
   },
-  currentText: {
-    fontSize: 12,
-    color: "var(--text2)",
-    lineHeight: 1.6,
-    fontStyle: "italic",
+  btnDismiss: {
+    padding: "4px 7px",
+    fontSize: 10,
+    background: "var(--red-dim)",
+    border: "1px solid var(--red-border)",
+    color: "var(--red)",
+    borderRadius: "var(--radius-sm)",
   },
-
-  overrideForm: { display: "flex", gap: 8, padding: "10px 16px" },
-  overrideInput: { flex: 1, fontFamily: "var(--mono)", fontSize: 12 },
+  txMini: {
+    margin: "6px",
+    padding: "5px 7px",
+    background: "var(--bg3)",
+    borderRadius: "var(--radius-md)",
+    maxHeight: 100,
+    overflowY: "auto",
+  },
+  txLine: { display: "flex", gap: 5, alignItems: "baseline", padding: "1px 0" },
+  txTime: {
+    fontFamily: "var(--mono)",
+    color: "var(--text4)",
+    fontSize: 9,
+    flexShrink: 0,
+    minWidth: 54,
+  },
+  emptyPane: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    gap: 3,
+  },
 };

@@ -1,6 +1,8 @@
 // packages/verse-matcher/src/regex.ts
 // Stage 1 of the detection pipeline.
-// Detects explicit references: "John 3:16", "Ps. 23:1", "1 Cor 13:4-7"
+// Detects explicit references in many spoken/written forms:
+//   "John 3:16", "John 3.16", "John 3 16", "John chapter 3 verse 16",
+//   "John three sixteen", "Revelation 21 verse six", "Genesis 1 1"
 
 export interface VerseReference {
   book: string;
@@ -34,7 +36,8 @@ const BOOK_MAP: Record<string, string> = {
   'psalms': 'Psalms', 'psalm': 'Psalms', 'ps': 'Psalms', 'psa': 'Psalms', 'ps.': 'Psalms',
   'proverbs': 'Proverbs', 'prov': 'Proverbs', 'pro': 'Proverbs',
   'ecclesiastes': 'Ecclesiastes', 'eccl': 'Ecclesiastes', 'ecc': 'Ecclesiastes',
-  'song of solomon': 'Song of Solomon', 'song': 'Song of Solomon', 'sos': 'Song of Solomon',
+  'song of solomon': 'Song of Solomon', 'song of songs': 'Song of Solomon',
+  'song': 'Song of Solomon', 'sos': 'Song of Solomon',
   'isaiah': 'Isaiah', 'isa': 'Isaiah',
   'jeremiah': 'Jeremiah', 'jer': 'Jeremiah',
   'lamentations': 'Lamentations', 'lam': 'Lamentations',
@@ -82,29 +85,66 @@ const BOOK_MAP: Record<string, string> = {
   'revelation': 'Revelation', 'rev': 'Revelation',
 };
 
+// Spoken number words → digits (handles "verse sixteen", "chapter three")
+const NUMBER_WORDS: Record<string, number> = {
+  'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+  'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+  'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+  'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20,
+  'twenty one': 21, 'twenty two': 22, 'twenty three': 23, 'twenty four': 24,
+  'twenty five': 25, 'twenty six': 26, 'twenty seven': 27, 'twenty eight': 28,
+  'twenty nine': 29, 'thirty': 30,
+};
+
+function wordToNumber(s: string): number | null {
+  const n = parseInt(s, 10);
+  if (!isNaN(n)) return n;
+  const w = s.toLowerCase().trim();
+  return NUMBER_WORDS[w] ?? null;
+}
+
 const ALIASES = Object.keys(BOOK_MAP).sort((a, b) => b.length - a.length);
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const BOOK_PATTERN = ALIASES.map(escapeRegex).join('|');
 
+// Number token: digit string OR number word
+const NUM = `(?:\\d{1,3}|${Object.keys(NUMBER_WORDS).sort((a,b) => b.length - a.length).map(escapeRegex).join('|')})`;
+
+// Separator between chapter and verse:
+//   colon, dot, dash, "verse", "v", whitespace-only (e.g. "Genesis 1 1")
+const SEP = `(?:\\s*[:.\\-]\\s*|\\s+(?:verse|v\\.?)?\\s*)`;
+
+// Optional "chapter N" prefix before the chapter number
+const CHAP_PREFIX = `(?:chapter\\s+)?`;
+
 const REF_REGEX = new RegExp(
-  `\\b(${BOOK_PATTERN})\\s+(\\d{1,3})\\s*:\\s*(\\d{1,3})(?:\\s*[-–]\\s*(\\d{1,3}))?\\b`,
+  `\\b(${BOOK_PATTERN})\\s+${CHAP_PREFIX}(${NUM})${SEP}(${NUM})(?:\\s*[-–]\\s*(${NUM}))?\\b`,
   'gi'
 );
 
 export function detectExplicitReference(text: string): VerseReference | null {
+  // Normalise: lowercase, collapse whitespace
+  const normalised = text.toLowerCase().replace(/\s+/g, ' ').trim();
+
   REF_REGEX.lastIndex = 0;
-  const match = REF_REGEX.exec(text);
+  const match = REF_REGEX.exec(normalised);
   if (!match) return null;
 
-  const [, bookRaw, chapterStr, verseStr, endVerseStr] = match;
-  const book = BOOK_MAP[bookRaw.toLowerCase()];
+  const [, bookRaw, chapterRaw, verseRaw, endVerseRaw] = match;
+  const book = BOOK_MAP[bookRaw.toLowerCase().trim()];
   if (!book) return null;
+
+  const chapter  = wordToNumber(chapterRaw);
+  const verse    = wordToNumber(verseRaw);
+  const endVerse = endVerseRaw ? wordToNumber(endVerseRaw) : undefined;
+
+  if (!chapter || !verse) return null;
 
   return {
     book,
-    chapter:  parseInt(chapterStr, 10),
-    verse:    parseInt(verseStr, 10),
-    endVerse: endVerseStr ? parseInt(endVerseStr, 10) : undefined,
+    chapter,
+    verse,
+    endVerse: endVerse ?? undefined,
   };
 }
 

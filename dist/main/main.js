@@ -475,38 +475,89 @@ function firstWords(text, n = 8) {
 
 // packages/verse-matcher/src/pipeline.ts
 // Orchestrates: regex → fuzzy → semantic
+// Includes a sliding window so verses spoken across multiple STT chunks are caught.
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.pushSegment = pushSegment;
+exports.clearWindow = clearWindow;
 exports.detectVerse = detectVerse;
 const regex_1 = __webpack_require__(/*! ./regex */ "./packages/verse-matcher/src/regex.ts");
 const fuzzy_1 = __webpack_require__(/*! ./fuzzy */ "./packages/verse-matcher/src/fuzzy.ts");
+// ── Sliding window ────────────────────────────────────────────────────────────
+// Keeps the last N transcript segments so a verse quote that spans multiple
+// 4-second chunks can still be matched (e.g. "For God so loved the world" +
+// "that he gave his only begotten son" arrive in separate chunks).
+const WINDOW_SIZE = 4; // number of segments to keep
+const recentSegments = [];
+function pushSegment(text) {
+    recentSegments.push(text.trim());
+    if (recentSegments.length > WINDOW_SIZE) {
+        recentSegments.shift();
+    }
+}
+function windowText() {
+    return recentSegments.join(' ');
+}
+function clearWindow() {
+    recentSegments.length = 0;
+}
+// ── Main entry ────────────────────────────────────────────────────────────────
 async function detectVerse(text, options = {}) {
     const opts = {
-        minFuzzyScore: 0.5,
+        minFuzzyScore: 0.45, // slightly more permissive than before
         semanticEnabled: false,
         semanticThreshold: 0.75,
         ...options,
     };
-    // Stage 1: Regex — explicit references
-    const explicit = (0, regex_1.detectExplicitReference)(text);
-    if (explicit) {
+    // Add this segment to the sliding window
+    pushSegment(text);
+    // --- Stage 1: Regex on current segment first (fast path) ---
+    const explicitCurrent = (0, regex_1.detectExplicitReference)(text);
+    if (explicitCurrent) {
+        clearWindow(); // fresh start after an explicit hit
         return {
-            reference: explicit,
-            referenceString: (0, regex_1.formatReference)(explicit),
+            reference: explicitCurrent,
+            referenceString: (0, regex_1.formatReference)(explicitCurrent),
             confidence: 1.0,
             method: 'regex',
         };
     }
-    // Stage 2: Fuzzy — first-line matching
-    const fuzzy = (0, fuzzy_1.fuzzyMatch)(text);
-    if (fuzzy && fuzzy.normalizedScore >= opts.minFuzzyScore) {
+    // --- Stage 1b: Regex on the sliding window (catches split references) ---
+    // e.g. "...that's in John 3" followed by ".16" or "verse 16" next chunk
+    const combined = windowText();
+    const explicitWindow = (0, regex_1.detectExplicitReference)(combined);
+    if (explicitWindow) {
+        clearWindow();
         return {
-            reference: fuzzy.ref,
-            referenceString: (0, regex_1.formatReference)(fuzzy.ref),
-            confidence: fuzzy.normalizedScore,
+            reference: explicitWindow,
+            referenceString: (0, regex_1.formatReference)(explicitWindow),
+            confidence: 0.95, // slightly less than 1.0 since it needed context
+            method: 'regex',
+        };
+    }
+    // --- Stage 2: Fuzzy on current segment ---
+    const fuzzyCurrent = (0, fuzzy_1.fuzzyMatch)(text);
+    if (fuzzyCurrent && fuzzyCurrent.normalizedScore >= opts.minFuzzyScore) {
+        return {
+            reference: fuzzyCurrent.ref,
+            referenceString: (0, regex_1.formatReference)(fuzzyCurrent.ref),
+            confidence: fuzzyCurrent.normalizedScore,
             method: 'fuzzy',
         };
     }
-    // Stage 3: Semantic — Phase 3, not yet implemented
+    // --- Stage 2b: Fuzzy on sliding window (catches multi-chunk quotes) ---
+    if (recentSegments.length > 1) {
+        const fuzzyWindow = (0, fuzzy_1.fuzzyMatch)(combined);
+        if (fuzzyWindow && fuzzyWindow.normalizedScore >= opts.minFuzzyScore) {
+            return {
+                reference: fuzzyWindow.ref,
+                referenceString: (0, regex_1.formatReference)(fuzzyWindow.ref),
+                // Slight penalty since it needed multiple chunks to match
+                confidence: fuzzyWindow.normalizedScore * 0.9,
+                method: 'fuzzy',
+            };
+        }
+    }
+    // Stage 3: Semantic — not yet implemented
     return null;
 }
 
@@ -523,7 +574,9 @@ async function detectVerse(text, options = {}) {
 
 // packages/verse-matcher/src/regex.ts
 // Stage 1 of the detection pipeline.
-// Detects explicit references: "John 3:16", "Ps. 23:1", "1 Cor 13:4-7"
+// Detects explicit references in many spoken/written forms:
+//   "John 3:16", "John 3.16", "John 3 16", "John chapter 3 verse 16",
+//   "John three sixteen", "Revelation 21 verse six", "Genesis 1 1"
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.detectExplicitReference = detectExplicitReference;
 exports.formatReference = formatReference;
@@ -552,7 +605,8 @@ const BOOK_MAP = {
     'psalms': 'Psalms', 'psalm': 'Psalms', 'ps': 'Psalms', 'psa': 'Psalms', 'ps.': 'Psalms',
     'proverbs': 'Proverbs', 'prov': 'Proverbs', 'pro': 'Proverbs',
     'ecclesiastes': 'Ecclesiastes', 'eccl': 'Ecclesiastes', 'ecc': 'Ecclesiastes',
-    'song of solomon': 'Song of Solomon', 'song': 'Song of Solomon', 'sos': 'Song of Solomon',
+    'song of solomon': 'Song of Solomon', 'song of songs': 'Song of Solomon',
+    'song': 'Song of Solomon', 'sos': 'Song of Solomon',
     'isaiah': 'Isaiah', 'isa': 'Isaiah',
     'jeremiah': 'Jeremiah', 'jer': 'Jeremiah',
     'lamentations': 'Lamentations', 'lam': 'Lamentations',
@@ -599,24 +653,55 @@ const BOOK_MAP = {
     'jude': 'Jude',
     'revelation': 'Revelation', 'rev': 'Revelation',
 };
+// Spoken number words → digits (handles "verse sixteen", "chapter three")
+const NUMBER_WORDS = {
+    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+    'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+    'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20,
+    'twenty one': 21, 'twenty two': 22, 'twenty three': 23, 'twenty four': 24,
+    'twenty five': 25, 'twenty six': 26, 'twenty seven': 27, 'twenty eight': 28,
+    'twenty nine': 29, 'thirty': 30,
+};
+function wordToNumber(s) {
+    const n = parseInt(s, 10);
+    if (!isNaN(n))
+        return n;
+    const w = s.toLowerCase().trim();
+    return NUMBER_WORDS[w] ?? null;
+}
 const ALIASES = Object.keys(BOOK_MAP).sort((a, b) => b.length - a.length);
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const BOOK_PATTERN = ALIASES.map(escapeRegex).join('|');
-const REF_REGEX = new RegExp(`\\b(${BOOK_PATTERN})\\s+(\\d{1,3})\\s*:\\s*(\\d{1,3})(?:\\s*[-–]\\s*(\\d{1,3}))?\\b`, 'gi');
+// Number token: digit string OR number word
+const NUM = `(?:\\d{1,3}|${Object.keys(NUMBER_WORDS).sort((a, b) => b.length - a.length).map(escapeRegex).join('|')})`;
+// Separator between chapter and verse:
+//   colon, dot, dash, "verse", "v", whitespace-only (e.g. "Genesis 1 1")
+const SEP = `(?:\\s*[:.\\-]\\s*|\\s+(?:verse|v\\.?)?\\s*)`;
+// Optional "chapter N" prefix before the chapter number
+const CHAP_PREFIX = `(?:chapter\\s+)?`;
+const REF_REGEX = new RegExp(`\\b(${BOOK_PATTERN})\\s+${CHAP_PREFIX}(${NUM})${SEP}(${NUM})(?:\\s*[-–]\\s*(${NUM}))?\\b`, 'gi');
 function detectExplicitReference(text) {
+    // Normalise: lowercase, collapse whitespace
+    const normalised = text.toLowerCase().replace(/\s+/g, ' ').trim();
     REF_REGEX.lastIndex = 0;
-    const match = REF_REGEX.exec(text);
+    const match = REF_REGEX.exec(normalised);
     if (!match)
         return null;
-    const [, bookRaw, chapterStr, verseStr, endVerseStr] = match;
-    const book = BOOK_MAP[bookRaw.toLowerCase()];
+    const [, bookRaw, chapterRaw, verseRaw, endVerseRaw] = match;
+    const book = BOOK_MAP[bookRaw.toLowerCase().trim()];
     if (!book)
+        return null;
+    const chapter = wordToNumber(chapterRaw);
+    const verse = wordToNumber(verseRaw);
+    const endVerse = endVerseRaw ? wordToNumber(endVerseRaw) : undefined;
+    if (!chapter || !verse)
         return null;
     return {
         book,
-        chapter: parseInt(chapterStr, 10),
-        verse: parseInt(verseStr, 10),
-        endVerse: endVerseStr ? parseInt(endVerseStr, 10) : undefined,
+        chapter,
+        verse,
+        endVerse: endVerse ?? undefined,
     };
 }
 function formatReference(ref) {
@@ -1057,6 +1142,39 @@ electron_1.ipcMain.handle(ipc_1.IPC.VERSE_OVERRIDE, async (_event, { reference }
         ...payload, confidence: 1.0, method: 'regex',
     });
     console.log(`[BibleBeam] Manual override: ${(0, regex_1.formatReference)(ref)}`);
+});
+electron_1.ipcMain.handle('bible:get-verses', (_e, { book, chapter }) => {
+    if (!bibleData)
+        return [];
+    const chapterData = bibleData[book]?.[chapter];
+    if (!chapterData)
+        return [];
+    return Object.entries(chapterData).map(([verse, text]) => ({
+        verse: parseInt(verse),
+        text,
+    })).sort((a, b) => a.verse - b.verse);
+});
+// Bible search — simple substring search across all verses
+electron_1.ipcMain.handle('bible:search-verses', (_e, { query }) => {
+    if (!bibleData || !query.trim())
+        return [];
+    const q = query.toLowerCase();
+    const results = [];
+    for (const [book, chapters] of Object.entries(bibleData)) {
+        for (const [chapter, verses] of Object.entries(chapters)) {
+            for (const [verse, text] of Object.entries(verses)) {
+                if (text.toLowerCase().includes(q)) {
+                    results.push({
+                        ref: `${book} ${chapter}:${verse}`,
+                        text: text,
+                    });
+                    if (results.length >= 50)
+                        return results; // cap at 50 results
+                }
+            }
+        }
+    }
+    return results;
 });
 // Settings
 electron_1.ipcMain.handle(ipc_1.IPC.SETTINGS_GET_KEY, async (_e, keyName) => keychain_1.keychain.get(keyName));

@@ -377,6 +377,39 @@ ipcMain.handle(IPC.VERSE_OVERRIDE, async (_event, { reference }: { reference: st
   console.log(`[BibleBeam] Manual override: ${formatReference(ref)}`);
 });
 
+ipcMain.handle('bible:get-verses', (_e, { book, chapter }: { book: string; chapter: number }) => {
+  if (!bibleData) return [];
+  const chapterData = bibleData[book]?.[chapter];
+  if (!chapterData) return [];
+  return Object.entries(chapterData).map(([verse, text]) => ({
+    verse: parseInt(verse),
+    text,
+  })).sort((a, b) => a.verse - b.verse);
+});
+ 
+// Bible search — simple substring search across all verses
+ipcMain.handle('bible:search-verses', (_e, { query }: { query: string }) => {
+  if (!bibleData || !query.trim()) return [];
+  const q = query.toLowerCase();
+  const results: { ref: string; text: string }[] = [];
+ 
+  for (const [book, chapters] of Object.entries(bibleData)) {
+    for (const [chapter, verses] of Object.entries(chapters as any)) {
+      for (const [verse, text] of Object.entries(verses as any)) {
+        if ((text as string).toLowerCase().includes(q)) {
+          results.push({
+            ref: `${book} ${chapter}:${verse}`,
+            text: text as string,
+          });
+          if (results.length >= 50) return results; // cap at 50 results
+        }
+      }
+    }
+  }
+  return results;
+});
+ 
+
 // Settings
 ipcMain.handle(IPC.SETTINGS_GET_KEY, async (_e, keyName: string) => keychain.get(keyName));
 

@@ -14,6 +14,12 @@ contextBridge.exposeInMainWorld('biblebeam', {
   overrideVerse:     (payload: any) => ipcRenderer.invoke(IPC.VERSE_OVERRIDE, payload),
   clearVerse:        () => ipcRenderer.invoke(IPC.VERSE_CLEAR),
 
+  // Bible browser — NEW
+  getVerses:         (payload: { book: string; chapter: number }) =>
+                       ipcRenderer.invoke('bible:get-verses', payload),
+  searchVerses:      (payload: { query: string }) =>
+                       ipcRenderer.invoke('bible:search-verses', payload),
+
   // Projector
   openProjector:     () => ipcRenderer.invoke(IPC.PROJECTOR_OPEN),
   closeProjector:    () => ipcRenderer.invoke(IPC.PROJECTOR_CLOSE),

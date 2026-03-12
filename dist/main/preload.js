@@ -111,6 +111,9 @@ electron_1.contextBridge.exposeInMainWorld('biblebeam', {
     rejectVerse: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.VERSE_REJECTED),
     overrideVerse: (payload) => electron_1.ipcRenderer.invoke(ipc_1.IPC.VERSE_OVERRIDE, payload),
     clearVerse: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.VERSE_CLEAR),
+    // Bible browser — NEW
+    getVerses: (payload) => electron_1.ipcRenderer.invoke('bible:get-verses', payload),
+    searchVerses: (payload) => electron_1.ipcRenderer.invoke('bible:search-verses', payload),
     // Projector
     openProjector: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.PROJECTOR_OPEN),
     closeProjector: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.PROJECTOR_CLOSE),
