@@ -1,0 +1,97 @@
+/* src/renderer/styles/globals.css */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #0a0a0a;
+  --bg2:          #111111;
+  --bg3:          #1a1a1a;
+  --border:       #2a2a2a;
+  --border2:      #333333;
+  --text:         #e8e8e8;
+  --text2:        #888888;
+  --text3:        #555555;
+  --accent:       #4ade80;   /* green — "live" / active */
+  --accent2:      #facc15;   /* amber — "pending" / warning */
+  --accent3:      #f87171;   /* red — reject */
+  --accent-dim:   #14532d;
+  --mono:         'IBM Plex Mono', monospace;
+  --sans:         'IBM Plex Sans', sans-serif;
+  --radius:       6px;
+  --radius-lg:    12px;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* Utility */
+.mono { font-family: var(--mono); }
+.muted { color: var(--text2); }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-family: var(--mono);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pill-green { background: var(--accent-dim); color: var(--accent); }
+.pill-amber { background: #422006; color: var(--accent2); }
+.pill-red   { background: #450a0a; color: var(--accent3); }
+.pill-gray  { background: var(--bg3); color: var(--text2); }
+
+button {
+  cursor: pointer;
+  font-family: var(--sans);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  transition: opacity 0.15s, background 0.15s;
+}
+button:hover { opacity: 0.85; }
+button:active { opacity: 0.7; }
+
+input, select {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus { border-color: var(--accent); }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

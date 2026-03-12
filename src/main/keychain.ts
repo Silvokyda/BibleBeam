@@ -1,26 +1,25 @@
 // src/main/keychain.ts
-// Thin wrapper around keytar for OS-native credential storage.
-// Keys are NEVER written to disk in plaintext.
+// Credential storage — uses a simple in-memory store for development.
+// TODO: Replace with keytar for production (requires libsecret-1-dev on Linux)
 
-import keytar from 'keytar';
-
-const SERVICE = 'biblebeam';
+const store = new Map<string, string>();
 
 export const keychain = {
-  get: (account: string): Promise<string | null> =>
-    keytar.getPassword(SERVICE, account),
-
-  set: (account: string, value: string): Promise<void> =>
-    keytar.setPassword(SERVICE, account, value),
-
-  delete: (account: string): Promise<boolean> =>
-    keytar.deletePassword(SERVICE, account),
+  get: async (account: string): Promise<string | null> => {
+    return store.get(account) ?? null;
+  },
+  set: async (account: string, value: string): Promise<void> => {
+    store.set(account, value);
+  },
+  delete: async (account: string): Promise<boolean> => {
+    return store.delete(account);
+  },
 };
 
-// Named key accounts — use these constants instead of raw strings
 export const KEYS = {
-  DEEPGRAM:    'deepgram-api-key',
-  WHISPER:     'whisper-api-key',
-  ASSEMBLYAI:  'assemblyai-api-key',
-  ESV:         'esv-api-key',
+  DEEPGRAM:   'deepgram-api-key',
+  WHISPER:    'whisper-api-key',
+  ASSEMBLYAI: 'assemblyai-api-key',
+  GROQ:       'groq-api-key',
+  ESV:        'esv-api-key',
 } as const;
