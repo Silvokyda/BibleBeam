@@ -11,7 +11,6 @@
 
 // src/main/ipc.ts
 // All IPC channel names in one place.
-// Import this in both main and renderer to avoid string typos.
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.IPC = void 0;
 exports.IPC = {
@@ -19,6 +18,7 @@ exports.IPC = {
     AUDIO_START: 'audio:start',
     AUDIO_STOP: 'audio:stop',
     AUDIO_STATUS: 'audio:status',
+    AUDIO_GET_DEVICES: 'audio:get-devices',
     // Transcript
     TRANSCRIPT_UPDATE: 'transcript:update',
     // Verse lifecycle
@@ -29,12 +29,18 @@ exports.IPC = {
     VERSE_CLEAR: 'verse:clear',
     // Projector
     PROJECTOR_UPDATE: 'projector:update',
+    PROJECTOR_OPEN: 'projector:open',
+    PROJECTOR_CLOSE: 'projector:close',
+    PROJECTOR_STATUS: 'projector:status',
     // Settings
     SETTINGS_GET: 'settings:get',
     SETTINGS_SET: 'settings:set',
     SETTINGS_GET_KEY: 'settings:get-key',
     SETTINGS_SET_KEY: 'settings:set-key',
     SETTINGS_TEST_STT: 'settings:test-stt',
+    // Theme
+    THEME_GET: 'theme:get',
+    THEME_SET: 'theme:set',
 };
 
 
@@ -91,26 +97,32 @@ var exports = __webpack_exports__;
   !*** ./src/main/preload.ts ***!
   \*****************************/
 
-// src/main/preload.ts
-// Exposes a typed IPC bridge to the renderer process.
-// contextIsolation is ON — renderer never touches Node directly.
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+// src/main/preload.ts
 const electron_1 = __webpack_require__(/*! electron */ "electron");
 const ipc_1 = __webpack_require__(/*! ./ipc */ "./src/main/ipc.ts");
 electron_1.contextBridge.exposeInMainWorld('biblebeam', {
     // Audio
     startListening: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.AUDIO_START),
     stopListening: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.AUDIO_STOP),
+    getAudioDevices: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.AUDIO_GET_DEVICES),
     // Verse actions
     approveVerse: (payload) => electron_1.ipcRenderer.invoke(ipc_1.IPC.VERSE_APPROVED, payload),
     rejectVerse: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.VERSE_REJECTED),
     overrideVerse: (payload) => electron_1.ipcRenderer.invoke(ipc_1.IPC.VERSE_OVERRIDE, payload),
     clearVerse: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.VERSE_CLEAR),
+    // Projector
+    openProjector: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.PROJECTOR_OPEN),
+    closeProjector: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.PROJECTOR_CLOSE),
+    getProjectorStatus: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.PROJECTOR_STATUS),
     // Settings
     getKey: (keyName) => electron_1.ipcRenderer.invoke(ipc_1.IPC.SETTINGS_GET_KEY, keyName),
     setKey: (keyName, value) => electron_1.ipcRenderer.invoke(ipc_1.IPC.SETTINGS_SET_KEY, keyName, value),
     getSettings: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.SETTINGS_GET),
     saveSettings: (s) => electron_1.ipcRenderer.invoke(ipc_1.IPC.SETTINGS_SET, s),
+    // Theme
+    getTheme: () => electron_1.ipcRenderer.invoke(ipc_1.IPC.THEME_GET),
+    setTheme: (theme) => electron_1.ipcRenderer.invoke(ipc_1.IPC.THEME_SET, theme),
     // Event listeners
     onTranscript: (cb) => {
         electron_1.ipcRenderer.on(ipc_1.IPC.TRANSCRIPT_UPDATE, (_e, p) => cb(p));
@@ -123,6 +135,14 @@ electron_1.contextBridge.exposeInMainWorld('biblebeam', {
     onProjectorUpdate: (cb) => {
         electron_1.ipcRenderer.on(ipc_1.IPC.PROJECTOR_UPDATE, (_e, p) => cb(p));
         return () => electron_1.ipcRenderer.removeAllListeners(ipc_1.IPC.PROJECTOR_UPDATE);
+    },
+    onThemeChanged: (cb) => {
+        electron_1.ipcRenderer.on(ipc_1.IPC.THEME_SET, (_e, t) => cb(t));
+        return () => electron_1.ipcRenderer.removeAllListeners(ipc_1.IPC.THEME_SET);
+    },
+    onProjectorStatus: (cb) => {
+        electron_1.ipcRenderer.on(ipc_1.IPC.PROJECTOR_STATUS, (_e, s) => cb(s));
+        return () => electron_1.ipcRenderer.removeAllListeners(ipc_1.IPC.PROJECTOR_STATUS);
     },
 });
 

@@ -108,44 +108,88 @@ exports.audioCapture = new AudioCapture();
 (__unused_webpack_module, exports, __webpack_require__) {
 
 
-// src/main/index.ts
-// Full pipeline: audio → STT → verse matcher → projector
-// Merged from main-index.ts — this is the single main entry point.
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+// src/main/index.ts
 const electron_1 = __webpack_require__(/*! electron */ "electron");
+const child_process_1 = __webpack_require__(/*! child_process */ "child_process");
 const path_1 = __importDefault(__webpack_require__(/*! path */ "path"));
 const audio_1 = __webpack_require__(/*! ./audio */ "./src/main/audio.ts");
 const ipc_1 = __webpack_require__(/*! ./ipc */ "./src/main/ipc.ts");
 const keychain_1 = __webpack_require__(/*! ./keychain */ "./src/main/keychain.ts");
 const websocket_1 = __webpack_require__(/*! ./websocket */ "./src/main/websocket.ts");
-// ── These imports are commented out until the packages are built ──
-// import { GroqProvider } from '../../packages/stt-providers/src/groq';
-// import { firstWords, buildFuzzyIndex } from '../../packages/verse-matcher/src/fuzzy';
-// import { detectVerse } from '../../packages/verse-matcher/src/pipeline';
-// import KJV from '../../packages/bible-data/translations/kjv.json';
 let operatorWindow = null;
 let projectorWindow = null;
-// Active STT provider — swappable via settings
 let sttProvider = null;
-// Settings state
 let settings = {
-    sttProvider: 'deepgram',
+    sttProvider: 'groq',
     translation: 'KJV',
     confidenceThreshold: 0.9,
     semanticMatchingEnabled: false,
     autoDisplay: true,
+    audioDevice: undefined,
+    theme: 'system',
 };
+// ─── Audio device enumeration ─────────────────────────────────────────────────
+function getAudioDevices() {
+    const platform = process.platform;
+    if (platform === 'linux') {
+        try {
+            const output = (0, child_process_1.execSync)('pactl list sources short', { encoding: 'utf-8' });
+            const lines = output.trim().split('\n').filter(l => l.trim());
+            return lines.map(line => {
+                const parts = line.split('\t');
+                const id = parts[1] || parts[0];
+                const isMonitor = id.includes('.monitor');
+                let name = id;
+                // Make names human-readable
+                if (id.includes('alsa_input')) {
+                    name = id.replace('alsa_input.', '').replace(/_/g, ' ');
+                }
+                else if (id.includes('alsa_output') && isMonitor) {
+                    name = 'Monitor of ' + id.replace('alsa_output.', '').replace('.monitor', '').replace(/_/g, ' ');
+                }
+                return {
+                    id,
+                    name: name.length > 60 ? name.slice(0, 57) + '...' : name,
+                    isDefault: parts[1]?.includes('RUNNING') || false,
+                };
+            });
+        }
+        catch {
+            return [{ id: 'default', name: 'Default microphone', isDefault: true }];
+        }
+    }
+    // Fallback for macOS / Windows
+    return [{ id: 'default', name: 'Default microphone', isDefault: true }];
+}
+// ─── Theme management ─────────────────────────────────────────────────────────
+function applyTheme(theme) {
+    if (theme === 'system') {
+        electron_1.nativeTheme.themeSource = 'system';
+    }
+    else {
+        electron_1.nativeTheme.themeSource = theme;
+    }
+    settings.theme = theme;
+    // Notify all renderer windows
+    operatorWindow?.webContents.send(ipc_1.IPC.THEME_SET, theme);
+}
 // ─── Window creation ──────────────────────────────────────────────────────────
 function createOperatorWindow() {
+    const primaryDisplay = electron_1.screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
     const win = new electron_1.BrowserWindow({
-        width: 1280,
-        height: 820,
+        width: Math.min(1400, width),
+        height: Math.min(860, height),
         minWidth: 960,
         minHeight: 600,
+        x: primaryDisplay.workArea.x + Math.round((width - Math.min(1400, width)) / 2),
+        y: primaryDisplay.workArea.y + Math.round((height - Math.min(860, height)) / 2),
         title: 'BibleBeam',
+        titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -167,12 +211,34 @@ function createOperatorWindow() {
     return win;
 }
 function createProjectorWindow() {
+    const displays = electron_1.screen.getAllDisplays();
+    const primaryDisplay = electron_1.screen.getPrimaryDisplay();
+    const externalDisplay = displays.find(d => d.id !== primaryDisplay.id);
+    let x, y, width, height;
+    const hasExternal = !!externalDisplay;
+    if (hasExternal) {
+        x = externalDisplay.bounds.x;
+        y = externalDisplay.bounds.y;
+        width = externalDisplay.bounds.width;
+        height = externalDisplay.bounds.height;
+        console.log(`[BibleBeam] Projector → external: ${width}x${height}`);
+    }
+    else {
+        const primary = primaryDisplay.workArea;
+        width = Math.round(primary.width * 0.5);
+        height = Math.round(primary.height * 0.55);
+        x = primary.x + primary.width - width - 24;
+        y = primary.y + primary.height - height - 24;
+        console.log('[BibleBeam] Projector → single monitor mode');
+    }
     const win = new electron_1.BrowserWindow({
-        width: 1920,
-        height: 1080,
+        x, y, width, height,
         frame: false,
         backgroundColor: '#000000',
         title: 'BibleBeam — Projector',
+        fullscreen: hasExternal,
+        alwaysOnTop: hasExternal,
+        skipTaskbar: hasExternal,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -186,53 +252,33 @@ function createProjectorWindow() {
 {}
     win.on('closed', () => {
         projectorWindow = null;
+        operatorWindow?.webContents.send(ipc_1.IPC.PROJECTOR_STATUS, false);
     });
     return win;
 }
-// ─── Boot sequence ────────────────────────────────────────────────────────────
+// ─── Boot ─────────────────────────────────────────────────────────────────────
 async function boot() {
-    // TODO: Build fuzzy verse index from KJV on startup
-    // Once bible-data package is ready, uncomment:
-    //
-    // const entries = Object.entries(KJV).flatMap(([book, chapters]: [string, any]) =>
-    //   Object.entries(chapters).flatMap(([chapter, verses]: [string, any]) =>
-    //     Object.entries(verses).map(([verse, text]: [string, any]) => ({
-    //       ref: { book, chapter: parseInt(chapter), verse: parseInt(verse) },
-    //       firstLine: firstWords(text as string, 8),
-    //     }))
-    //   )
-    // );
-    // buildFuzzyIndex(entries);
-    // console.log(`[BibleBeam] Fuzzy index built: ${entries.length} verses`);
+    applyTheme(settings.theme);
     (0, websocket_1.startDisplayServer)(7700);
     console.log('[BibleBeam] Boot complete');
 }
-// ─── STT provider management ─────────────────────────────────────────────────
+// ─── STT ──────────────────────────────────────────────────────────────────────
 async function startSTT() {
     const apiKey = await keychain_1.keychain.get('groq-api-key');
     if (!apiKey) {
         operatorWindow?.webContents.send('audio:error', 'No API key saved. Go to Settings to add your key.');
         return;
     }
-    // TODO: Wire STT provider once packages/stt-providers is built
-    // sttProvider = new GroqProvider();
-    // await sttProvider.connect(apiKey);
-    // sttProvider.startStreaming(onTranscript, onError);
-    // For now, just start audio capture so we can verify the pipeline
-    audio_1.audioCapture.start();
-    console.log('[BibleBeam] Audio capture started (STT not yet wired)');
+    audio_1.audioCapture.start(settings.audioDevice);
+    console.log('[BibleBeam] Audio capture started');
 }
 function stopSTT() {
     audio_1.audioCapture.stop();
     sttProvider?.stopStreaming?.();
     sttProvider = null;
 }
-// ─── Bible lookup (placeholder until bible-data package) ──────────────────────
-function lookupVerse(_book, _chapter, _verse) {
-    // TODO: implement once KJV JSON is loaded
-    return null;
-}
 // ─── IPC handlers ─────────────────────────────────────────────────────────────
+// Audio
 electron_1.ipcMain.handle(ipc_1.IPC.AUDIO_START, async () => {
     await startSTT();
     return { ok: true };
@@ -241,6 +287,32 @@ electron_1.ipcMain.handle(ipc_1.IPC.AUDIO_STOP, () => {
     stopSTT();
     return { ok: true };
 });
+electron_1.ipcMain.handle(ipc_1.IPC.AUDIO_GET_DEVICES, () => {
+    return getAudioDevices();
+});
+// Projector — on demand
+electron_1.ipcMain.handle(ipc_1.IPC.PROJECTOR_OPEN, () => {
+    if (projectorWindow && !projectorWindow.isDestroyed()) {
+        projectorWindow.focus();
+    }
+    else {
+        projectorWindow = createProjectorWindow();
+    }
+    operatorWindow?.webContents.send(ipc_1.IPC.PROJECTOR_STATUS, true);
+    return { ok: true };
+});
+electron_1.ipcMain.handle(ipc_1.IPC.PROJECTOR_CLOSE, () => {
+    if (projectorWindow && !projectorWindow.isDestroyed()) {
+        projectorWindow.close();
+    }
+    projectorWindow = null;
+    operatorWindow?.webContents.send(ipc_1.IPC.PROJECTOR_STATUS, false);
+    return { ok: true };
+});
+electron_1.ipcMain.handle(ipc_1.IPC.PROJECTOR_STATUS, () => {
+    return !!(projectorWindow && !projectorWindow.isDestroyed());
+});
+// Verse
 electron_1.ipcMain.handle(ipc_1.IPC.VERSE_APPROVED, (_event, payload) => {
     projectorWindow?.webContents.send(ipc_1.IPC.PROJECTOR_UPDATE, payload);
     (0, websocket_1.broadcastVerse)(payload);
@@ -250,12 +322,6 @@ electron_1.ipcMain.handle(ipc_1.IPC.VERSE_CLEAR, () => {
     (0, websocket_1.broadcastClear)();
 });
 electron_1.ipcMain.handle(ipc_1.IPC.VERSE_OVERRIDE, async (_event, { reference }) => {
-    // TODO: wire to verse-matcher regex once package exists
-    // const { detectExplicitReference } = await import('../../packages/verse-matcher/src/regex');
-    // const ref = detectExplicitReference(reference);
-    // if (!ref) return;
-    // const verseText = lookupVerse(ref.book, ref.chapter, ref.verse);
-    // For now, echo the reference back as a placeholder
     const payload = {
         reference,
         verseText: `[lookup not yet implemented for "${reference}"]`,
@@ -267,6 +333,7 @@ electron_1.ipcMain.handle(ipc_1.IPC.VERSE_OVERRIDE, async (_event, { reference }
         ...payload, confidence: 1.0, method: 'regex',
     });
 });
+// Settings
 electron_1.ipcMain.handle(ipc_1.IPC.SETTINGS_GET_KEY, async (_e, keyName) => {
     return keychain_1.keychain.get(keyName);
 });
@@ -277,9 +344,17 @@ electron_1.ipcMain.handle(ipc_1.IPC.SETTINGS_SET_KEY, async (_e, keyName, value)
 electron_1.ipcMain.handle(ipc_1.IPC.SETTINGS_GET, () => settings);
 electron_1.ipcMain.handle(ipc_1.IPC.SETTINGS_SET, (_e, s) => {
     settings = { ...settings, ...s };
+    if (s.theme)
+        applyTheme(s.theme);
     return { ok: true };
 });
-// ─── Audio data forwarding ────────────────────────────────────────────────────
+// Theme
+electron_1.ipcMain.handle(ipc_1.IPC.THEME_GET, () => settings.theme);
+electron_1.ipcMain.handle(ipc_1.IPC.THEME_SET, (_e, theme) => {
+    applyTheme(theme);
+    return { ok: true };
+});
+// ─── Audio forwarding ─────────────────────────────────────────────────────────
 audio_1.audioCapture.on('data', (chunk) => {
     sttProvider?.sendAudio?.(chunk);
 });
@@ -291,7 +366,19 @@ audio_1.audioCapture.on('error', (err) => {
 electron_1.app.whenReady().then(async () => {
     await boot();
     operatorWindow = createOperatorWindow();
-    projectorWindow = createProjectorWindow();
+    // Projector NOT opened here — user opens it when ready
+    electron_1.screen.on('display-added', () => {
+        console.log('[BibleBeam] Display added');
+        operatorWindow?.webContents.send('display:changed', true);
+    });
+    electron_1.screen.on('display-removed', () => {
+        console.log('[BibleBeam] Display removed');
+        if (projectorWindow && !projectorWindow.isDestroyed()) {
+            projectorWindow.close();
+            projectorWindow = createProjectorWindow();
+        }
+        operatorWindow?.webContents.send('display:changed', false);
+    });
     electron_1.app.on('activate', () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0) {
             operatorWindow = createOperatorWindow();
@@ -317,7 +404,6 @@ electron_1.app.on('window-all-closed', () => {
 
 // src/main/ipc.ts
 // All IPC channel names in one place.
-// Import this in both main and renderer to avoid string typos.
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.IPC = void 0;
 exports.IPC = {
@@ -325,6 +411,7 @@ exports.IPC = {
     AUDIO_START: 'audio:start',
     AUDIO_STOP: 'audio:stop',
     AUDIO_STATUS: 'audio:status',
+    AUDIO_GET_DEVICES: 'audio:get-devices',
     // Transcript
     TRANSCRIPT_UPDATE: 'transcript:update',
     // Verse lifecycle
@@ -335,12 +422,18 @@ exports.IPC = {
     VERSE_CLEAR: 'verse:clear',
     // Projector
     PROJECTOR_UPDATE: 'projector:update',
+    PROJECTOR_OPEN: 'projector:open',
+    PROJECTOR_CLOSE: 'projector:close',
+    PROJECTOR_STATUS: 'projector:status',
     // Settings
     SETTINGS_GET: 'settings:get',
     SETTINGS_SET: 'settings:set',
     SETTINGS_GET_KEY: 'settings:get-key',
     SETTINGS_SET_KEY: 'settings:set-key',
     SETTINGS_TEST_STT: 'settings:test-stt',
+    // Theme
+    THEME_GET: 'theme:get',
+    THEME_SET: 'theme:set',
 };
 
 

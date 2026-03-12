@@ -1,63 +1,228 @@
 /* src/renderer/styles/globals.css */
+/* BibleBeam Design System — Light & Dark */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ─── Dark theme (default) ─────────────────────────────────────────────────── */
 :root {
-  --bg:           #0a0a0a;
-  --bg2:          #111111;
-  --bg3:          #1a1a1a;
-  --border:       #2a2a2a;
-  --border2:      #333333;
-  --text:         #e8e8e8;
-  --text2:        #888888;
-  --text3:        #555555;
-  --accent:       #4ade80;   /* green — "live" / active */
-  --accent2:      #facc15;   /* amber — "pending" / warning */
-  --accent3:      #f87171;   /* red — reject */
-  --accent-dim:   #14532d;
-  --mono:         'IBM Plex Mono', monospace;
-  --sans:         'IBM Plex Sans', sans-serif;
-  --radius:       6px;
-  --radius-lg:    12px;
+  --bg:             #09090b;
+  --bg2:            #111113;
+  --bg3:            #1c1c20;
+  --bg-elevated:    #18181b;
+  --bg-hover:       #27272a;
+  --bg-active:      #323236;
+  --bg-input:       #18181b;
+
+  --surface:        #131316;
+  --surface2:       #1c1c20;
+  --surface-border: rgba(255,255,255,0.06);
+
+  --border:         #27272a;
+  --border2:        #3f3f46;
+  --border-subtle:  rgba(255,255,255,0.04);
+  --border-focus:   #22c55e;
+
+  --text:           #fafafa;
+  --text2:          #a1a1aa;
+  --text3:          #71717a;
+  --text4:          #52525b;
+  --text-inverse:   #09090b;
+
+  --accent:         #22c55e;
+  --accent-hover:   #16a34a;
+  --accent-dim:     rgba(34,197,94,0.1);
+  --accent-border:  rgba(34,197,94,0.2);
+  --accent-subtle:  rgba(34,197,94,0.06);
+
+  --amber:          #f59e0b;
+  --amber-dim:      rgba(245,158,11,0.1);
+  --amber-border:   rgba(245,158,11,0.2);
+
+  --red:            #ef4444;
+  --red-dim:        rgba(239,68,68,0.1);
+  --red-border:     rgba(239,68,68,0.15);
+
+  --blue:           #3b82f6;
+  --blue-dim:       rgba(59,130,246,0.1);
+  --blue-border:    rgba(59,130,246,0.2);
+
+  --purple:         #a855f7;
+  --purple-dim:     rgba(168,85,247,0.1);
+
+  --mono:           'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --sans:           'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  --radius-sm:      4px;
+  --radius:         6px;
+  --radius-md:      8px;
+  --radius-lg:      12px;
+  --radius-xl:      16px;
+
+  --shadow-xs:      0 1px 2px rgba(0,0,0,0.2);
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow:         0 4px 12px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.2);
+  --shadow-lg:      0 8px 32px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3);
+
+  --transition:     150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  color-scheme: dark;
 }
 
+/* ─── Light theme ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:             #ffffff;
+  --bg2:            #f8f8fa;
+  --bg3:            #f0f0f3;
+  --bg-elevated:    #ffffff;
+  --bg-hover:       #f4f4f5;
+  --bg-active:      #e8e8eb;
+  --bg-input:       #ffffff;
+
+  --surface:        #ffffff;
+  --surface2:       #f8f8fa;
+  --surface-border: rgba(0,0,0,0.06);
+
+  --border:         #e4e4e7;
+  --border2:        #d4d4d8;
+  --border-subtle:  rgba(0,0,0,0.04);
+  --border-focus:   #16a34a;
+
+  --text:           #09090b;
+  --text2:          #52525b;
+  --text3:          #a1a1aa;
+  --text4:          #d4d4d8;
+  --text-inverse:   #ffffff;
+
+  --accent:         #16a34a;
+  --accent-hover:   #15803d;
+  --accent-dim:     rgba(22,163,74,0.07);
+  --accent-border:  rgba(22,163,74,0.2);
+  --accent-subtle:  rgba(22,163,74,0.04);
+
+  --amber:          #d97706;
+  --amber-dim:      rgba(217,119,6,0.07);
+  --amber-border:   rgba(217,119,6,0.15);
+
+  --red:            #dc2626;
+  --red-dim:        rgba(220,38,38,0.06);
+  --red-border:     rgba(220,38,38,0.12);
+
+  --blue:           #2563eb;
+  --blue-dim:       rgba(37,99,235,0.06);
+  --blue-border:    rgba(37,99,235,0.15);
+
+  --purple:         #9333ea;
+  --purple-dim:     rgba(147,51,234,0.06);
+
+  --shadow-xs:      0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow:         0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg:      0 4px 16px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.05);
+
+  color-scheme: light;
+}
+
+/* Also support system preference when data-theme="system" or not set */
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --bg:             #ffffff;
+    --bg2:            #f8f8fa;
+    --bg3:            #f0f0f3;
+    --bg-elevated:    #ffffff;
+    --bg-hover:       #f4f4f5;
+    --bg-active:      #e8e8eb;
+    --bg-input:       #ffffff;
+    --surface:        #ffffff;
+    --surface2:       #f8f8fa;
+    --surface-border: rgba(0,0,0,0.06);
+    --border:         #e4e4e7;
+    --border2:        #d4d4d8;
+    --border-subtle:  rgba(0,0,0,0.04);
+    --border-focus:   #16a34a;
+    --text:           #09090b;
+    --text2:          #52525b;
+    --text3:          #a1a1aa;
+    --text4:          #d4d4d8;
+    --text-inverse:   #ffffff;
+    --accent:         #16a34a;
+    --accent-hover:   #15803d;
+    --accent-dim:     rgba(22,163,74,0.07);
+    --accent-border:  rgba(22,163,74,0.2);
+    --accent-subtle:  rgba(22,163,74,0.04);
+    --amber:          #d97706;
+    --amber-dim:      rgba(217,119,6,0.07);
+    --amber-border:   rgba(217,119,6,0.15);
+    --red:            #dc2626;
+    --red-dim:        rgba(220,38,38,0.06);
+    --red-border:     rgba(220,38,38,0.12);
+    --blue:           #2563eb;
+    --blue-dim:       rgba(37,99,235,0.06);
+    --blue-border:    rgba(37,99,235,0.15);
+    --purple:         #9333ea;
+    --purple-dim:     rgba(147,51,234,0.06);
+    --shadow-xs:      0 1px 2px rgba(0,0,0,0.04);
+    --shadow-sm:      0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow:         0 2px 8px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-lg:      0 4px 16px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.05);
+    color-scheme: light;
+  }
+}
+
+/* ─── Base ─────────────────────────────────────────────────────────────────── */
 html, body, #root {
   height: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: background var(--transition-slow), color var(--transition-slow);
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
+/* ─── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
-/* Utility */
-.mono { font-family: var(--mono); }
-.muted { color: var(--text2); }
+::selection {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* ─── Pills ────────────────────────────────────────────────────────────────── */
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 5px;
+  padding: 1px 8px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--mono);
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  line-height: 20px;
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
-.pill-green { background: var(--accent-dim); color: var(--accent); }
-.pill-amber { background: #422006; color: var(--accent2); }
-.pill-red   { background: #450a0a; color: var(--accent3); }
-.pill-gray  { background: var(--bg3); color: var(--text2); }
+.pill-green  { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-border); }
+.pill-amber  { background: var(--amber-dim);  color: var(--amber);  border-color: var(--amber-border); }
+.pill-red    { background: var(--red-dim);     color: var(--red);    border-color: var(--red-border); }
+.pill-blue   { background: var(--blue-dim);    color: var(--blue);   border-color: var(--blue-border); }
+.pill-gray   { background: var(--bg3);         color: var(--text2);  border-color: var(--border); }
+.pill-purple { background: var(--purple-dim);  color: var(--purple); }
 
+/* ─── Buttons ──────────────────────────────────────────────────────────────── */
 button {
   cursor: pointer;
   font-family: var(--sans);
@@ -65,13 +230,25 @@ button {
   border-radius: var(--radius);
   font-size: 13px;
   font-weight: 500;
-  transition: opacity 0.15s, background 0.15s;
+  line-height: 1;
+  transition: all var(--transition);
+  outline: none;
 }
-button:hover { opacity: 0.85; }
-button:active { opacity: 0.7; }
+button:hover:not(:disabled) { filter: brightness(1.06); }
+button:active:not(:disabled) { transform: scale(0.98); }
+button:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
 
-input, select {
-  background: var(--bg3);
+/* ─── Inputs ───────────────────────────────────────────────────────────────── */
+input, select, textarea {
+  background: var(--bg-input);
   border: 1px solid var(--border2);
   border-radius: var(--radius);
   color: var(--text);
@@ -79,19 +256,63 @@ input, select {
   font-size: 13px;
   padding: 8px 12px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: all var(--transition);
+  width: 100%;
 }
-input:focus, select:focus { border-color: var(--accent); }
+input:hover:not(:focus), select:hover:not(:focus) {
+  border-color: var(--text3);
+}
+input:focus, select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+input::placeholder { color: var(--text3); }
 
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+/* Range */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--border2);
+  border-radius: 2px;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--transition);
+}
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+input[type="range"]:focus { box-shadow: none; }
+
+/* ─── Animations ───────────────────────────────────────────────────────────── */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.3; }
 }
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+.animate-in { animation: slide-up 0.2s ease; }
+.fade-in    { animation: fade-in 0.25s ease; }
