@@ -1,24 +1,19 @@
 // packages/stt-providers/src/index.ts
-// Provider registry — add new providers here.
-
 export type { ISTTProvider, TranscriptSegment } from './base';
-export { DeepgramProvider }  from './deepgram';
-// export { WhisperProvider }   from './whisper';    // Phase 2
-// export { AssemblyAIProvider } from './assemblyai'; // Phase 2
+export { GroqProvider } from './groq';
+export { DeepgramProvider } from './deepgram';
 
 import type { ISTTProvider } from './base';
-import { DeepgramProvider }  from './deepgram';
+import { GroqProvider } from './groq';
+import { DeepgramProvider } from './deepgram';
 
-export type ProviderId = 'deepgram' | 'whisper' | 'assemblyai';
-
-export const PROVIDERS: Record<ProviderId, () => ISTTProvider> = {
-  deepgram:   () => new DeepgramProvider(),
-  whisper:    () => { throw new Error('Whisper provider not yet implemented'); },
-  assemblyai: () => { throw new Error('AssemblyAI provider not yet implemented'); },
-};
+export type ProviderId = 'groq' | 'deepgram' | 'whisper' | 'assemblyai';
 
 export function createProvider(id: ProviderId): ISTTProvider {
-  const factory = PROVIDERS[id];
-  if (!factory) throw new Error(`Unknown STT provider: ${id}`);
-  return factory();
+  switch (id) {
+    case 'groq':     return new GroqProvider();
+    case 'deepgram': return new DeepgramProvider();
+    default:
+      throw new Error(`Provider "${id}" is not yet implemented. Use Groq or Deepgram.`);
+  }
 }

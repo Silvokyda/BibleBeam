@@ -12,10 +12,7 @@ module.exports = {
     filename: '[name].js',
   },
   resolve: {
-    extensions: ['.ts', '.js'],
-    alias: {
-      packages: path.resolve(__dirname, 'packages'),
-    },
+    extensions: ['.ts', '.js', '.json'],
   },
   module: {
     rules: [
@@ -26,7 +23,13 @@ module.exports = {
       },
     ],
   },
+  node: {
+    __dirname: false,
+    __filename: false,
+  },
   externals: {
     electron: 'commonjs electron',
+    keytar: 'commonjs keytar',
+    'groq-sdk': 'commonjs groq-sdk',
   },
 };

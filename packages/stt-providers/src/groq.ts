@@ -1,48 +1,46 @@
 // packages/stt-providers/src/groq.ts
-// Groq Whisper STT adapter.
-// Groq runs Whisper at very high speed — typically <1s per chunk.
-// Free tier: 7,200 seconds of audio per day. More than enough for weekly services.
+// Groq Whisper STT — buffers audio chunks, sends to Groq for transcription.
+// Free tier: 7,200 seconds/day. More than enough for church use.
 // Get a key at: https://console.groq.com
 
-import type { ISTTProvider, TranscriptSegment } from './base';
-import { Writable } from 'stream';
+import Groq from 'groq-sdk';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import type { ISTTProvider, TranscriptSegment } from './base';
 
-// Groq does not support true streaming like Deepgram.
-// Instead we buffer audio into fixed-size chunks and send each one.
-// CHUNK_MS controls latency vs accuracy tradeoff:
-//   lower = faster display, but less context for Whisper to work with
-//   higher = better accuracy, slightly more delay
-const CHUNK_MS     = 4000;  // 4 seconds per chunk — good balance for sermons
-const SAMPLE_RATE  = 16000;
-const CHANNELS     = 1;
-const BYTES_PER_SAMPLE = 2; // s16le
-const CHUNK_BYTES  = (SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE * CHUNK_MS) / 1000;
+// Buffer config: 4 seconds of 16kHz mono s16le audio
+const CHUNK_MS         = 4000;
+const SAMPLE_RATE      = 16000;
+const CHANNELS         = 1;
+const BYTES_PER_SAMPLE = 2;
+const CHUNK_BYTES      = (SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE * CHUNK_MS) / 1000;
 
 export class GroqProvider implements ISTTProvider {
   readonly name = 'Groq (Whisper)';
   readonly id   = 'groq';
 
-  private apiKey: string = '';
-  private groq: any = null;
+  private groq: Groq | null = null;
   private buffer: Buffer[] = [];
   private bufferSize = 0;
   private streaming = false;
+  private processing = false;
   private onTranscript: ((seg: TranscriptSegment) => void) | null = null;
   private onError: ((err: Error) => void) | null = null;
 
   async connect(apiKey: string): Promise<void> {
-    const { Groq } = await import('groq-sdk' as any);
     this.groq = new Groq({ apiKey });
-    this.apiKey = apiKey;
 
-    // Lightweight validation — list models to confirm key works
+    // Validate key — list models to confirm it works
     try {
       await this.groq.models.list();
+      console.log('[Groq] API key valid');
     } catch (err: any) {
-      throw new Error(`Groq API key invalid or unreachable: ${err?.message}`);
+      this.groq = null;
+      if (err?.status === 401 || err?.message?.includes('401')) {
+        throw new Error('Invalid Groq API key. Check it in Settings.');
+      }
+      throw new Error(`Cannot reach Groq API: ${err?.message || err}`);
     }
   }
 
@@ -51,7 +49,7 @@ export class GroqProvider implements ISTTProvider {
     onError: (error: Error) => void
   ): void {
     if (!this.groq) {
-      onError(new Error('GroqProvider.connect() must be called before startStreaming()'));
+      onError(new Error('Call connect() before startStreaming()'));
       return;
     }
     this.onTranscript = onTranscript;
@@ -59,6 +57,7 @@ export class GroqProvider implements ISTTProvider {
     this.streaming    = true;
     this.buffer       = [];
     this.bufferSize   = 0;
+    console.log('[Groq] Streaming started — buffering audio');
   }
 
   sendAudio(chunk: Buffer): void {
@@ -67,84 +66,95 @@ export class GroqProvider implements ISTTProvider {
     this.buffer.push(chunk);
     this.bufferSize += chunk.length;
 
-    if (this.bufferSize >= CHUNK_BYTES) {
+    // When we have enough audio, transcribe it
+    if (this.bufferSize >= CHUNK_BYTES && !this.processing) {
       const audioData = Buffer.concat(this.buffer);
       this.buffer     = [];
       this.bufferSize = 0;
-      this._transcribeChunk(audioData);
+      this.transcribeChunk(audioData);
     }
   }
 
-  private async _transcribeChunk(pcmData: Buffer): Promise<void> {
-    if (!this.groq || !this.onTranscript || !this.onError) return;
+  stopStreaming(): void {
+    // Flush remaining buffer if substantial
+    if (this.bufferSize >= CHUNK_BYTES / 2 && !this.processing) {
+      const audioData = Buffer.concat(this.buffer);
+      this.transcribeChunk(audioData);
+    }
 
-    // Groq expects a file upload. We write a temp WAV file from raw PCM,
-    // then send it. WAV header is minimal but valid.
-    const tmpFile = path.join(os.tmpdir(), `bb_chunk_${Date.now()}.wav`);
+    this.streaming    = false;
+    this.buffer       = [];
+    this.bufferSize   = 0;
+    console.log('[Groq] Streaming stopped');
+  }
+
+  disconnect(): void {
+    this.stopStreaming();
+    this.onTranscript = null;
+    this.onError      = null;
+    this.groq         = null;
+  }
+
+  // ── Internal ──────────────────────────────────────────────────────────────
+
+  private async transcribeChunk(pcmData: Buffer): Promise<void> {
+    if (!this.groq || !this.onTranscript) return;
+    this.processing = true;
+
+    const tmpFile = path.join(os.tmpdir(), `biblebeam_${Date.now()}.wav`);
 
     try {
+      // Convert raw PCM to WAV (Groq needs a file upload)
       const wav = pcmToWav(pcmData, SAMPLE_RATE, CHANNELS);
       fs.writeFileSync(tmpFile, wav);
 
-      const transcription = await this.groq.audio.transcriptions.create({
+      const result = await this.groq.audio.transcriptions.create({
         file:     fs.createReadStream(tmpFile),
         model:    'whisper-large-v3-turbo',
         language: 'en',
       });
 
-      const text = transcription?.text?.trim();
+      const text = result?.text?.trim();
       if (text) {
         this.onTranscript({
           text,
-          isFinal:    true,
+          isFinal: true,
           timestampMs: Date.now(),
         });
       }
     } catch (err: any) {
-      this.onError?.(new Error(`Groq transcription error: ${err?.message}`));
+      console.error('[Groq] Transcription error:', err?.message || err);
+      this.onError?.(new Error(`Transcription failed: ${err?.message || err}`));
     } finally {
       // Clean up temp file
       try { fs.unlinkSync(tmpFile); } catch {}
+      this.processing = false;
     }
-  }
-
-  stopStreaming(): void {
-    this.streaming    = false;
-    this.onTranscript = null;
-    this.onError      = null;
-    this.buffer       = [];
-    this.bufferSize   = 0;
-  }
-
-  disconnect(): void {
-    this.stopStreaming();
-    this.groq   = null;
-    this.apiKey = '';
   }
 }
 
-// ── Minimal PCM → WAV converter ───────────────────────────────────────────────
-// Groq needs an audio file, not raw PCM. We build a valid WAV header.
+// ── PCM → WAV ─────────────────────────────────────────────────────────────────
 
 function pcmToWav(pcm: Buffer, sampleRate: number, channels: number): Buffer {
-  const byteRate    = sampleRate * channels * BYTES_PER_SAMPLE;
-  const blockAlign  = channels * BYTES_PER_SAMPLE;
-  const dataSize    = pcm.length;
-  const header      = Buffer.alloc(44);
+  const bytesPerSample = 2;
+  const byteRate   = sampleRate * channels * bytesPerSample;
+  const blockAlign = channels * bytesPerSample;
+  const dataSize   = pcm.length;
+  const header     = Buffer.alloc(44);
 
-  header.write('RIFF',           0);
+  header.write('RIFF', 0);
   header.writeUInt32LE(36 + dataSize, 4);
-  header.write('WAVE',           8);
-  header.write('fmt ',          12);
-  header.writeUInt32LE(16,      16); // PCM chunk size
-  header.writeUInt16LE(1,       20); // PCM format
-  header.writeUInt16LE(channels,22);
-  header.writeUInt32LE(sampleRate,  24);
-  header.writeUInt32LE(byteRate,    28);
-  header.writeUInt16LE(blockAlign,  32);
-  header.writeUInt16LE(16,          34); // bits per sample
-  header.write('data',              36);
-  header.writeUInt32LE(dataSize,    40);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);            // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(16, 34);           // bits per sample
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
 
   return Buffer.concat([header, pcm]);
 }

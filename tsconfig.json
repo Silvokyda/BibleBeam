@@ -16,12 +16,12 @@
     "baseUrl": "."
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "packages/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "scripts",
-    "packages"
+    "scripts"
   ]
 }
